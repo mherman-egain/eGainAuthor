@@ -29,7 +29,7 @@
 .header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 0.35rem;
   padding: 1rem 1.1rem;
   border-bottom: 1px solid var(--eg-border);
   flex-shrink: 0;
@@ -37,8 +37,15 @@
 
 .title {
   margin: 0;
+  margin-right: auto;
   font-size: 1.05rem;
   font-weight: 700;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
 }
 
 .body {

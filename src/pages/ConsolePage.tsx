@@ -13,6 +13,36 @@ import { useConsoleStore } from '@/store/consoleStore'
 import { useToastStore } from '@/store/toastStore'
 import styles from './ConsolePage.module.css'
 
+const NARROW_MQ = '(max-width: 1100px)'
+
+function PinIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden fill="none">
+      <path
+        d="M12 17v5M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16h14v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
+function UnpinIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden fill="none">
+      <path
+        d="M12 17v5M15 9.34V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0-1.68.91M2 2l20 20M9 9v1.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16h5"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
 export function ConsolePage() {
   const isAuthenticated = useSessionStore((s) => s.isAuthenticated)
   const getClient = useSessionStore((s) => s.getClient)
@@ -24,6 +54,8 @@ export function ConsolePage() {
     loadArticles,
     propertiesOpen,
     setPropertiesOpen,
+    propertiesAnchored,
+    setPropertiesAnchored,
     mobilePanel,
     setMobilePanel,
   } = useConsoleStore()
@@ -32,6 +64,25 @@ export function ConsolePage() {
   const [createOpen, setCreateOpen] = useState(false)
   const [title, setTitle] = useState('Untitled article')
   const [booting, setBooting] = useState(true)
+  const [narrow, setNarrow] = useState(() =>
+    typeof window !== 'undefined' ? window.matchMedia(NARROW_MQ).matches : false,
+  )
+
+  useEffect(() => {
+    const mq = window.matchMedia(NARROW_MQ)
+    const onChange = () => setNarrow(mq.matches)
+    onChange()
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
+
+  // Narrow viewports can't host the docked panel — drop the anchor and close
+  // so properties only appear after an explicit Properties button press.
+  useEffect(() => {
+    if (!narrow) return
+    setPropertiesAnchored(false)
+    setPropertiesOpen(false)
+  }, [narrow, setPropertiesAnchored, setPropertiesOpen])
 
   useEffect(() => {
     if (!isAuthenticated()) return
@@ -52,6 +103,10 @@ export function ConsolePage() {
   if (!isAuthenticated()) {
     return <Navigate to="/login" replace />
   }
+
+  const docked = propertiesAnchored && !narrow
+  const showDockedProps = docked && propertiesOpen
+  const showModalProps = propertiesOpen && !docked
 
   const openCreate = () => {
     setTitle('Untitled article')
@@ -81,6 +136,16 @@ export function ConsolePage() {
         message: err instanceof Error ? err.message : 'Could not create article',
       })
     }
+  }
+
+  const anchorProperties = () => {
+    setPropertiesAnchored(true)
+    setPropertiesOpen(true)
+  }
+
+  const unanchorProperties = () => {
+    setPropertiesAnchored(false)
+    setPropertiesOpen(true)
   }
 
   return (
@@ -114,7 +179,9 @@ export function ConsolePage() {
         </Button>
       </div>
 
-      <div className={styles.body}>
+      <div
+        className={clsx(styles.body, showDockedProps && styles.bodyWithProps)}
+      >
         <div
           className={clsx(
             styles.folderCol,
@@ -142,13 +209,57 @@ export function ConsolePage() {
             <ArticleEditor />
           )}
         </main>
+
+        {showDockedProps ? (
+          <aside className={styles.propsCol} aria-label="Article properties">
+            <div className={styles.propsHeader}>
+              <h2 className={styles.propsTitle}>Properties</h2>
+              <Button
+                variant="ghost"
+                size="sm"
+                icon
+                title="Unanchor properties"
+                aria-label="Unanchor properties"
+                onClick={unanchorProperties}
+              >
+                <UnpinIcon />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                icon
+                aria-label="Close properties"
+                onClick={() => setPropertiesOpen(false)}
+              >
+                ✕
+              </Button>
+            </div>
+            <div className={`${styles.propsBody} app-scroll`}>
+              <PropertiesPanel />
+            </div>
+          </aside>
+        ) : null}
       </div>
 
       <Modal
-        open={propertiesOpen}
+        open={showModalProps}
         title="Article properties"
         size="lg"
         onClose={() => setPropertiesOpen(false)}
+        headerActions={
+          narrow ? null : (
+            <Button
+              variant="ghost"
+              size="sm"
+              icon
+              title="Anchor properties to the right"
+              aria-label="Anchor properties to the right"
+              onClick={anchorProperties}
+            >
+              <PinIcon />
+            </Button>
+          )
+        }
       >
         <PropertiesPanel />
       </Modal>

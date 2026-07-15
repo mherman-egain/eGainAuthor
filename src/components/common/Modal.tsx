@@ -8,11 +8,21 @@ type Props = {
   children: ReactNode
   onClose: () => void
   footer?: ReactNode
+  /** Extra controls shown before the close button (e.g. Anchor). */
+  headerActions?: ReactNode
   /** Wider dialog for forms like article properties. */
   size?: 'default' | 'lg'
 }
 
-export function Modal({ open, title, children, onClose, footer, size = 'default' }: Props) {
+export function Modal({
+  open,
+  title,
+  children,
+  onClose,
+  footer,
+  headerActions,
+  size = 'default',
+}: Props) {
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
@@ -35,6 +45,9 @@ export function Modal({ open, title, children, onClose, footer, size = 'default'
       >
         <div className={styles.header}>
           <h2 className={styles.title}>{title}</h2>
+          {headerActions ? (
+            <div className={styles.headerActions}>{headerActions}</div>
+          ) : null}
           <Button variant="ghost" icon aria-label="Close" onClick={onClose}>
             ✕
           </Button>

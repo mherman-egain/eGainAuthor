@@ -24,3 +24,17 @@ export const STORAGE_KEYS = {
   recentServers: 'recentServers',
   uiPrefs: 'uiPrefs',
 } as const
+
+export type UiPrefs = {
+  autoSave?: boolean
+  /** Dock article properties to the right side of the console. */
+  propertiesAnchored?: boolean
+}
+
+export function loadUiPrefs(): UiPrefs {
+  return loadJson<UiPrefs>(STORAGE_KEYS.uiPrefs, {})
+}
+
+export function saveUiPrefs(patch: Partial<UiPrefs>): void {
+  saveJson(STORAGE_KEYS.uiPrefs, { ...loadUiPrefs(), ...patch })
+}

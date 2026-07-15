@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import clsx from 'clsx'
 import { Button } from '@/components/common/Button'
 import { EmptyState } from '@/components/common/EmptyState'
@@ -11,6 +12,11 @@ import { useToastStore } from '@/store/toastStore'
 import { formatDate, statusLabel } from '@/utils/format'
 import styles from './ArticleEditor.module.css'
 
+const AUTO_SAVE_IDLE_MS = 5000
+const SAVED_STATUS_MS = 2500
+
+type SaveStatus = 'idle' | 'saving' | 'saved'
+
 export function ArticleEditor() {
   const {
     selectedArticleId,
@@ -21,21 +27,123 @@ export function ArticleEditor() {
     draftTitle,
     draftContent,
     articleDirty,
+    autoSave,
     setDraftTitle,
     setDraftContent,
+    acceptEditorBaseline,
     markClean,
+    setAutoSave,
     applyArticleApiResult,
     language,
+    propertiesOpen,
+    propertiesAnchored,
     setPropertiesOpen,
   } = useConsoleStore()
   const getClient = useSessionStore((s) => s.getClient)
   const user = useSessionStore((s) => s.user)
   const pushToast = useToastStore((s) => s.push)
+  const savingRef = useRef(false)
+  const savedClearRef = useRef<number | null>(null)
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
 
   const isCheckedOut = Boolean(articleDetail?.checkedOut)
   const canEdit = Boolean(
     articleDetail && isCheckedOutByUser(articleDetail, user),
   )
+
+  useEffect(() => {
+    return () => {
+      if (savedClearRef.current != null) window.clearTimeout(savedClearRef.current)
+    }
+  }, [])
+
+  // Drop "Saved" once the author starts editing again.
+  useEffect(() => {
+    if (articleDirty && saveStatus === 'saved') setSaveStatus('idle')
+  }, [articleDirty, saveStatus])
+
+  useEffect(() => {
+    if (savedClearRef.current != null) {
+      window.clearTimeout(savedClearRef.current)
+      savedClearRef.current = null
+    }
+    setSaveStatus('idle')
+  }, [selectedArticleId])
+
+  /** Always use stamp from the most recent article API response. */
+  const currentLastModified = () => {
+    const latest = useConsoleStore.getState().articleDetail
+    return resolveArticleLastModified(
+      latest?.id ?? articleDetail!.id,
+      latest?.lastModifiedDate ?? articleDetail!.lastModifiedDate,
+    )
+  }
+
+  const save = async () => {
+    const state = useConsoleStore.getState()
+    const detail = state.articleDetail
+    if (!detail || savingRef.current) return
+    savingRef.current = true
+    if (savedClearRef.current != null) {
+      window.clearTimeout(savedClearRef.current)
+      savedClearRef.current = null
+    }
+    setSaveStatus('saving')
+    try {
+      const updated = await getClient().editArticle({
+        id: detail.id,
+        name: state.draftTitle,
+        content: state.draftContent,
+        lastModifiedDate: currentLastModified(),
+        language: state.language,
+        notes: detail.notes,
+        includeInGenAI: detail.includeInGenAI,
+        description: detail.description,
+        keywords: detail.keywords,
+        summary: detail.summary,
+      })
+      markClean()
+      applyArticleApiResult(updated)
+      setSaveStatus('saved')
+      savedClearRef.current = window.setTimeout(() => {
+        setSaveStatus('idle')
+        savedClearRef.current = null
+      }, SAVED_STATUS_MS)
+    } catch (err) {
+      setSaveStatus('idle')
+      pushToast({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Save failed',
+      })
+      throw err
+    } finally {
+      savingRef.current = false
+    }
+  }
+
+  // Auto-save when dirty and the author has been idle for 5 seconds.
+  useEffect(() => {
+    if (articleLoading) return
+    if (!autoSave || !canEdit || !articleDirty || !articleDetail) return
+    if (selectedArticleId !== articleDetail.id) return
+    const timer = window.setTimeout(() => {
+      const state = useConsoleStore.getState()
+      if (!state.autoSave || !state.articleDirty) return
+      if (state.selectedArticleId !== state.articleDetail?.id) return
+      void save().catch(() => undefined)
+    }, AUTO_SAVE_IDLE_MS)
+    return () => window.clearTimeout(timer)
+    // draftTitle/draftContent reset the idle clock on each edit.
+  }, [
+    autoSave,
+    canEdit,
+    articleDirty,
+    draftTitle,
+    draftContent,
+    articleDetail?.id,
+    selectedArticleId,
+    articleLoading,
+  ])
 
   if (!selectedArticleId) {
     return (
@@ -85,41 +193,6 @@ export function ArticleEditor() {
         </div>
       </div>
     )
-  }
-
-  /** Always use stamp from the most recent article API response. */
-  const currentLastModified = () => {
-    const latest = useConsoleStore.getState().articleDetail
-    return resolveArticleLastModified(
-      latest?.id ?? articleDetail.id,
-      latest?.lastModifiedDate ?? articleDetail.lastModifiedDate,
-    )
-  }
-
-  const save = async () => {
-    try {
-      const updated = await getClient().editArticle({
-        id: articleDetail.id,
-        name: draftTitle,
-        content: draftContent,
-        lastModifiedDate: currentLastModified(),
-        language,
-        notes: articleDetail.notes,
-        includeInGenAI: articleDetail.includeInGenAI,
-        description: articleDetail.description,
-        keywords: articleDetail.keywords,
-        summary: articleDetail.summary,
-      })
-      markClean()
-      applyArticleApiResult(updated)
-      pushToast({ type: 'success', message: 'Article saved' })
-    } catch (err) {
-      pushToast({
-        type: 'error',
-        message: err instanceof Error ? err.message : 'Save failed',
-      })
-      throw err
-    }
   }
 
   const checkout = async () => {
@@ -222,10 +295,38 @@ export function ArticleEditor() {
         >
           Publish
         </Button>
-        <Button variant="ghost" size="sm" onClick={() => setPropertiesOpen(true)}>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() =>
+            setPropertiesOpen(propertiesAnchored ? !propertiesOpen : true)
+          }
+        >
           Properties
         </Button>
-        {articleDirty ? <span className={styles.dirty}>Unsaved changes</span> : null}
+        <label className={styles.autoSave} title="Save after 5 seconds of idle editing">
+          <input
+            type="checkbox"
+            checked={autoSave}
+            onChange={(e) => setAutoSave(e.target.checked)}
+          />
+          Auto Save
+        </label>
+        <span
+          className={clsx(
+            styles.saveHint,
+            saveStatus === 'idle' && articleDirty && styles.saveHintDirty,
+          )}
+          aria-live="polite"
+        >
+          {saveStatus === 'saving'
+            ? 'Saving…'
+            : saveStatus === 'saved'
+              ? 'Saved'
+              : articleDirty
+                ? 'Unsaved changes'
+                : null}
+        </span>
       </div>
 
       <div className={styles.titleRow}>
@@ -252,6 +353,7 @@ export function ArticleEditor() {
           value={draftContent}
           editable={canEdit}
           onChange={setDraftContent}
+          onBaseline={acceptEditorBaseline}
         />
       </div>
     </div>

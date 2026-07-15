@@ -1,6 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import clsx from 'clsx'
 import { Button } from '@/components/common/Button'
+import {
+  ContextMenu,
+  type ContextMenuItem,
+  type ContextMenuState,
+} from '@/components/common/ContextMenu'
 import { EmptyState } from '@/components/common/EmptyState'
 import { SkeletonList } from '@/components/common/Skeleton'
 import { ConfirmDialog, Modal } from '@/components/common/Modal'
@@ -8,6 +13,7 @@ import { useConsoleStore } from '@/store/consoleStore'
 import { useSessionStore } from '@/store/sessionStore'
 import { useToastStore } from '@/store/toastStore'
 import { setArticleDragData } from '@/utils/articleDnD'
+import { pasteClipboardIntoFolder, pasteSuccessMessage } from '@/utils/kbPaste'
 import { formatRelative, statusLabel } from '@/utils/format'
 import type { FolderNode } from '@/types'
 import styles from './ArticleList.module.css'
@@ -33,17 +39,20 @@ export function ArticleList({ onCreateArticle }: { onCreateArticle: () => void }
     clearArticleSelection,
     selectAllArticles,
     getSelectedArticleIds,
-    copySelectionToClipboard,
-    articleClipboard,
+    copyArticlesToClipboard,
+    cutArticlesToClipboard,
+    clipboard,
     selectedFolderId,
     folders,
     loadArticles,
+    loadFolders,
     language,
     setDraggingArticleIds,
   } = useConsoleStore()
   const getClient = useSessionStore((s) => s.getClient)
   const pushToast = useToastStore((s) => s.push)
 
+  const [menu, setMenu] = useState<ContextMenuState | null>(null)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [moveOpen, setMoveOpen] = useState(false)
   const [destId, setDestId] = useState('')
@@ -53,6 +62,7 @@ export function ArticleList({ onCreateArticle }: { onCreateArticle: () => void }
   const selectedIds = getSelectedArticleIds()
   const selectedCount = selectedIds.length
   const hasSelection = selectedCount > 0
+  const canPaste = Boolean(selectedFolderId && clipboard?.ids.length)
 
   // A single opened article also lives in selectedArticleIds, so only treat
   // Escape as "clear selection" when there's an actual multi-selection —
@@ -66,16 +76,49 @@ export function ArticleList({ onCreateArticle }: { onCreateArticle: () => void }
         return
       }
       if (document.querySelector('[role="dialog"]')) return
+      if (document.querySelector('[role="menu"]')) return
       if (e.key === 'Escape' && hasMultiSelection) {
         clearArticleSelection()
       } else if (e.key === 'Delete' && hasSelection) {
         e.preventDefault()
         setDeleteOpen(true)
+      } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'c' && hasSelection) {
+        e.preventDefault()
+        copyArticlesToClipboard()
+        pushToast({
+          type: 'info',
+          message:
+            selectedCount === 1
+              ? 'Article copied — paste into a folder'
+              : `${selectedCount} articles copied — paste into a folder`,
+        })
+      } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'x' && hasSelection) {
+        e.preventDefault()
+        cutArticlesToClipboard()
+        pushToast({
+          type: 'info',
+          message:
+            selectedCount === 1
+              ? 'Article cut — paste into a folder'
+              : `${selectedCount} articles cut — paste into a folder`,
+        })
+      } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'v' && canPaste) {
+        e.preventDefault()
+        void runPaste()
       }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [hasSelection, hasMultiSelection, clearArticleSelection])
+  }, [
+    hasSelection,
+    hasMultiSelection,
+    clearArticleSelection,
+    copyArticlesToClipboard,
+    cutArticlesToClipboard,
+    canPaste,
+    selectedCount,
+    pushToast,
+  ])
 
   const statusClass = (status: string) => {
     if (status === 'live') return styles.live
@@ -147,9 +190,9 @@ export function ArticleList({ onCreateArticle }: { onCreateArticle: () => void }
   const runCopyToClipboard = () => {
     const ids = getSelectedArticleIds()
     if (!ids.length) return
-    copySelectionToClipboard()
+    copyArticlesToClipboard(ids)
     pushToast({
-      type: 'success',
+      type: 'info',
       message:
         ids.length === 1
           ? 'Article copied — paste into a folder'
@@ -157,25 +200,35 @@ export function ArticleList({ onCreateArticle }: { onCreateArticle: () => void }
     })
   }
 
+  const runCutToClipboard = () => {
+    const ids = getSelectedArticleIds()
+    if (!ids.length) return
+    cutArticlesToClipboard(ids)
+    pushToast({
+      type: 'info',
+      message:
+        ids.length === 1
+          ? 'Article cut — paste into a folder'
+          : `${ids.length} articles cut — paste into a folder`,
+    })
+  }
+
   const runPaste = async () => {
-    const clip = useConsoleStore.getState().articleClipboard
-    if (!clip?.articleIds.length || !selectedFolderId) return
+    if (!selectedFolderId) return
     setBusy(true)
     try {
-      const copied = await getClient().copyArticles(
-        clip.articleIds,
-        selectedFolderId,
-        language,
-      )
-      pushToast({
-        type: 'success',
-        message:
-          copied.length === 1
-            ? 'Article pasted'
-            : `${copied.length} articles pasted`,
-      })
-      await loadArticles(selectedFolderId)
-      if (copied[0]?.id) await selectArticle(copied[0].id)
+      const result = await pasteClipboardIntoFolder(selectedFolderId)
+      if (!result) return
+      pushToast({ type: 'success', message: pasteSuccessMessage(result) })
+      if (result.kind === 'folders') {
+        await loadFolders()
+      } else {
+        await loadArticles(selectedFolderId)
+        if (result.mode === 'cut') {
+          clearArticleSelection()
+          await selectArticle(null)
+        }
+      }
     } catch (err) {
       pushToast({
         type: 'error',
@@ -185,6 +238,81 @@ export function ArticleList({ onCreateArticle }: { onCreateArticle: () => void }
       setBusy(false)
     }
   }
+
+  const onArticleContextMenu = useCallback(
+    (e: React.MouseEvent, articleId: string) => {
+      e.preventDefault()
+      e.stopPropagation()
+      const state = useConsoleStore.getState()
+      let ids: string[]
+      if (!state.selectedArticleIds.has(articleId)) {
+        ids = [articleId]
+        void state.selectArticleExclusive(articleId)
+      } else {
+        ids = state.getSelectedArticleIds()
+      }
+      const count = ids.length
+      const dest = state.selectedFolderId
+      const canPasteHere = Boolean(dest && state.clipboard?.ids.length)
+
+      const items: ContextMenuItem[] = [
+        {
+          id: 'cut',
+          label: count > 1 ? `Cut ${count} articles` : 'Cut',
+          onSelect: () => {
+            cutArticlesToClipboard(ids)
+            pushToast({
+              type: 'info',
+              message:
+                count === 1
+                  ? 'Article cut — paste into a folder'
+                  : `${count} articles cut — paste into a destination`,
+            })
+          },
+        },
+        {
+          id: 'copy',
+          label: count > 1 ? `Copy ${count} articles` : 'Copy',
+          onSelect: () => {
+            copyArticlesToClipboard(ids)
+            pushToast({
+              type: 'info',
+              message:
+                count === 1
+                  ? 'Article copied — paste into a folder'
+                  : `${count} articles copied — paste into a folder`,
+            })
+          },
+        },
+        {
+          id: 'paste',
+          label: 'Paste',
+          disabled: !canPasteHere,
+          onSelect: () => {
+            if (dest) void runPaste()
+          },
+        },
+        { type: 'separator', id: 'sep-1' },
+        {
+          id: 'move',
+          label: count > 1 ? `Move ${count}…` : 'Move…',
+          onSelect: () => {
+            setDestId(dest || '')
+            setMoveOpen(true)
+          },
+        },
+        {
+          id: 'delete',
+          label: count > 1 ? `Delete ${count}…` : 'Delete…',
+          danger: true,
+          onSelect: () => setDeleteOpen(true),
+        },
+      ]
+      setMenu({ x: e.clientX, y: e.clientY, items })
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [cutArticlesToClipboard, copyArticlesToClipboard, pushToast],
+  )
 
   return (
     <div className={styles.panel}>
@@ -240,6 +368,15 @@ export function ArticleList({ onCreateArticle }: { onCreateArticle: () => void }
         <Button
           variant="ghost"
           size="sm"
+          title="Cut the selected article(s)"
+          disabled={!hasSelection || busy}
+          onClick={runCutToClipboard}
+        >
+          ✂ Cut
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
           title="Copy the selected article(s) to the clipboard"
           disabled={!hasSelection || busy}
           onClick={runCopyToClipboard}
@@ -249,8 +386,8 @@ export function ArticleList({ onCreateArticle }: { onCreateArticle: () => void }
         <Button
           variant="ghost"
           size="sm"
-          title="Paste the clipboard's articles into this folder"
-          disabled={!selectedFolderId || !articleClipboard?.articleIds.length || busy}
+          title="Paste the clipboard into this folder"
+          disabled={!canPaste || busy}
           onClick={() => void runPaste()}
         >
           ⎖ Paste
@@ -278,7 +415,28 @@ export function ArticleList({ onCreateArticle }: { onCreateArticle: () => void }
         </Button>
       </div>
 
-      <div className={`${styles.list} app-scroll`} role="listbox" aria-label="Articles" aria-multiselectable>
+      <div
+        className={`${styles.list} app-scroll`}
+        role="listbox"
+        aria-label="Articles"
+        aria-multiselectable
+        onContextMenu={(e) => {
+          if ((e.target as HTMLElement).closest(`.${styles.item}`)) return
+          e.preventDefault()
+          setMenu({
+            x: e.clientX,
+            y: e.clientY,
+            items: [
+              {
+                id: 'paste',
+                label: 'Paste',
+                disabled: !canPaste,
+                onSelect: () => void runPaste(),
+              },
+            ],
+          })
+        }}
+      >
         {!selectedFolderId ? (
           <EmptyState title="Select a folder" body="Choose a folder to view its articles." />
         ) : articlesLoading ? (
@@ -297,13 +455,21 @@ export function ArticleList({ onCreateArticle }: { onCreateArticle: () => void }
           articles.map((article) => {
             const isSelected = selectedArticleIds.has(article.id)
             const isPrimary = selectedArticleId === article.id
+            const isCut =
+              clipboard?.kind === 'articles' &&
+              clipboard.mode === 'cut' &&
+              clipboard.ids.includes(article.id)
             return (
               <div
                 key={article.id}
                 role="option"
                 aria-selected={isSelected}
                 tabIndex={0}
-                className={clsx(styles.item, isSelected && styles.itemSelected)}
+                className={clsx(
+                  styles.item,
+                  isSelected && styles.itemSelected,
+                  isCut && styles.itemCut,
+                )}
                 draggable
                 onDragStart={(e) => {
                   const ids = idsForDrag(article.id)
@@ -325,6 +491,7 @@ export function ArticleList({ onCreateArticle }: { onCreateArticle: () => void }
                   }
                   void selectArticleExclusive(article.id)
                 }}
+                onContextMenu={(e) => onArticleContextMenu(e, article.id)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault()
@@ -362,9 +529,11 @@ export function ArticleList({ onCreateArticle }: { onCreateArticle: () => void }
       </div>
 
       <p className={styles.hint}>
-        Tip: check boxes to multi-select, Shift+click for a range, or drag onto a
-        folder to move. Esc clears selection, Delete removes it.
+        Tip: right-click for Cut / Copy / Paste. Check boxes or Ctrl/Cmd+click to
+        multi-select; Shift+click for a range; drag onto a folder to move.
       </p>
+
+      <ContextMenu menu={menu} onClose={() => setMenu(null)} />
 
       <Modal
         open={moveOpen}

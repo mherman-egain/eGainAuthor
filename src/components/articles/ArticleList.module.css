@@ -77,6 +77,10 @@
   background: var(--eg-brand-soft);
 }
 
+.itemCut {
+  opacity: 0.45;
+}
+
 .item:active {
   cursor: grabbing;
 }

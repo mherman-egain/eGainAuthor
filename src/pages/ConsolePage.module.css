@@ -12,12 +12,51 @@
   min-height: 0;
 }
 
+.bodyWithProps {
+  grid-template-columns:
+    var(--eg-folder-w) var(--eg-article-w) minmax(0, 1fr) var(--eg-props-w);
+}
+
 .main {
   min-width: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
   background: var(--eg-surface);
+}
+
+.propsCol {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--eg-surface);
+  border-left: 1px solid var(--eg-border);
+}
+
+.propsHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.55rem 0.65rem;
+  border-bottom: 1px solid var(--eg-border);
+  flex-shrink: 0;
+  background: var(--eg-surface);
+}
+
+.propsTitle {
+  margin: 0;
+  margin-right: auto;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--eg-ink);
+}
+
+.propsBody {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0.85rem 0.9rem 1.1rem;
 }
 
 .folderCol,

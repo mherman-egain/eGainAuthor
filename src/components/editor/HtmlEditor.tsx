@@ -7,6 +7,11 @@ type Props = {
   value: string
   editable: boolean
   onChange: (html: string) => void
+  /**
+   * Called once after TinyMCE finishes loading seed HTML. TinyMCE often
+   * rewrites markup on init — use this to adopt that form as the clean baseline.
+   */
+  onBaseline?: (html: string) => void
   /** Remount / reseed when the loaded article (or edit mode) changes. */
   contentKey: string
 }
@@ -109,15 +114,25 @@ const EDITOR_INIT = {
  * on every keystroke — tinymce-react calls setContent when those props change,
  * which resets the caret (looks like typing backwards).
  */
-export function HtmlEditor({ value, editable, onChange, contentKey }: Props) {
+export function HtmlEditor({
+  value,
+  editable,
+  onChange,
+  onBaseline,
+  contentKey,
+}: Props) {
   const editorRef = useRef<TinyMCEEditor | null>(null)
   const onChangeRef = useRef(onChange)
   onChangeRef.current = onChange
+  const onBaselineRef = useRef(onBaseline)
+  onBaselineRef.current = onBaseline
+  const baselineReadyRef = useRef(false)
 
   // Freeze seed HTML per contentKey so draft updates don't change initialValue.
   const seedRef = useRef({ key: contentKey, html: value || '<p></p>' })
   if (seedRef.current.key !== contentKey) {
     seedRef.current = { key: contentKey, html: value || '<p></p>' }
+    baselineReadyRef.current = false
   }
 
   useEffect(() => {
@@ -137,8 +152,13 @@ export function HtmlEditor({ value, editable, onChange, contentKey }: Props) {
         onInit={(_evt, editor) => {
           editorRef.current = editor
           editor.mode.set(editable ? 'design' : 'readonly')
+          const html = editor.getContent()
+          baselineReadyRef.current = true
+          onBaselineRef.current?.(html)
         }}
         onEditorChange={(html) => {
+          // Ignore pre-init change events; baseline sync handles mount rewrite.
+          if (!baselineReadyRef.current) return
           onChangeRef.current(html)
         }}
         // TinyMCE InitOptions is stricter than our config object; runtime is fine.

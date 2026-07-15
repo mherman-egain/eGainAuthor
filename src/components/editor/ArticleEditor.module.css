@@ -99,10 +99,35 @@
   align-self: center;
 }
 
-.dirty {
-  color: var(--eg-warning);
-  font-weight: 650;
+.autoSave {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-left: 0.25rem;
   font-size: 0.8rem;
+  font-weight: 550;
+  color: var(--eg-muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.autoSave input {
+  margin: 0;
+  accent-color: var(--eg-brand);
+}
+
+.saveHint {
+  margin-left: auto;
+  min-height: 1em;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--eg-muted);
+  letter-spacing: 0.01em;
+}
+
+.saveHintDirty {
+  color: var(--eg-warning);
+  font-weight: 600;
 }
 
 .empty {

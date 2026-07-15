@@ -10,20 +10,35 @@ import {
   findFolderInTree,
   replaceFolderInTree,
 } from '@/api/folders'
+import { collectFolderIdsDepthFirst } from '@/utils/folderSelection'
+import { loadUiPrefs, saveUiPrefs } from '@/utils/storage'
 import { useSessionStore } from './sessionStore'
 import { useToastStore } from './toastStore'
 
-export type ArticleClipboard = {
-  articleIds: string[]
-  /** Copy into destination folder via copy API. */
-  mode: 'copy'
+function draftsDirty(
+  draftTitle: string,
+  draftContent: string,
+  savedTitle: string,
+  savedContent: string,
+) {
+  return draftTitle !== savedTitle || draftContent !== savedContent
 }
+
+/** In-app clipboard for cut/copy of articles or folders. */
+export type KbClipboard =
+  | { kind: 'articles'; ids: string[]; mode: 'copy' | 'cut' }
+  | { kind: 'folders'; ids: string[]; mode: 'copy' | 'cut' }
 
 type ConsoleStore = {
   folders: FolderNode[]
   foldersLoading: boolean
   folderFilter: string
+  /** Open folder (article list target). */
   selectedFolderId: string | null
+  /** Multi-select set for bulk folder actions (includes open folder when set). */
+  selectedFolderIds: Set<string>
+  /** Anchor for Shift+click range selection in the folder tree. */
+  folderSelectionAnchorId: string | null
   expandedFolderIds: Set<string>
 
   articles: ArticleSummary[]
@@ -34,8 +49,8 @@ type ConsoleStore = {
   selectedArticleIds: Set<string>
   /** Anchor for Shift+click range selection. */
   articleSelectionAnchorId: string | null
-  /** In-memory clipboard for copy/paste across folders. */
-  articleClipboard: ArticleClipboard | null
+  /** In-memory clipboard for cut/copy/paste across folders. */
+  clipboard: KbClipboard | null
   /** Article ids currently being dragged (for folder drop-target affordance). */
   draggingArticleIds: string[]
   articleDetail: ArticleDetail | null
@@ -45,6 +60,14 @@ type ConsoleStore = {
   articleDirty: boolean
   draftTitle: string
   draftContent: string
+  /** Last saved / loaded title — used to compute dirty state. */
+  savedTitle: string
+  /** Last saved / loaded content (TinyMCE-normalized after editor mounts). */
+  savedContent: string
+  /** Persist idle auto-save preference. */
+  autoSave: boolean
+  /** Persist whether properties is docked on the right. */
+  propertiesAnchored: boolean
 
   articleTypes: ArticleType[]
   language: string
@@ -56,7 +79,12 @@ type ConsoleStore = {
   mobilePanel: 'folders' | 'articles' | 'editor'
 
   loadFolders: () => Promise<void>
+  /** Open a folder and replace folder multi-selection. */
   selectFolder: (id: string | null) => Promise<void>
+  toggleFolderSelected: (id: string) => void
+  selectFolderRange: (toId: string) => void
+  clearFolderSelection: () => void
+  getSelectedFolderIds: () => string[]
   toggleFolderExpanded: (id: string) => void
   ensureFolderChildren: (id: string) => Promise<void>
   setFolderFilter: (q: string) => void
@@ -71,12 +99,22 @@ type ConsoleStore = {
   selectAllArticles: () => void
   /** IDs for bulk actions (multi-select, else primary). */
   getSelectedArticleIds: () => string[]
-  copySelectionToClipboard: () => void
-  clearArticleClipboard: () => void
+  copyArticlesToClipboard: (ids?: string[]) => void
+  cutArticlesToClipboard: (ids?: string[]) => void
+  copyFoldersToClipboard: (ids?: string[]) => void
+  cutFoldersToClipboard: (ids?: string[]) => void
+  clearClipboard: () => void
   setDraggingArticleIds: (ids: string[]) => void
   setDraftTitle: (title: string) => void
   setDraftContent: (html: string) => void
+  /**
+   * TinyMCE rewrites HTML on mount; adopt that serialization as the clean
+   * baseline so the Unsaved badge does not flash for an untouched article.
+   */
+  acceptEditorBaseline: (html: string) => void
   markClean: () => void
+  setAutoSave: (enabled: boolean) => void
+  setPropertiesAnchored: (anchored: boolean) => void
   /** Merge an article API response into the open editor + list (keeps draft if dirty). */
   applyArticleApiResult: (article: ArticleDetail) => void
   refreshArticle: () => Promise<void>
@@ -99,6 +137,8 @@ export const useConsoleStore = create<ConsoleStore>((set, get) => ({
   foldersLoading: false,
   folderFilter: '',
   selectedFolderId: null,
+  selectedFolderIds: new Set(),
+  folderSelectionAnchorId: null,
   expandedFolderIds: new Set<string>(),
 
   articles: [],
@@ -106,7 +146,7 @@ export const useConsoleStore = create<ConsoleStore>((set, get) => ({
   selectedArticleId: null,
   selectedArticleIds: new Set(),
   articleSelectionAnchorId: null,
-  articleClipboard: null,
+  clipboard: null,
   draggingArticleIds: [],
   articleDetail: null,
   articleLoading: false,
@@ -114,6 +154,10 @@ export const useConsoleStore = create<ConsoleStore>((set, get) => ({
   articleDirty: false,
   draftTitle: '',
   draftContent: '',
+  savedTitle: '',
+  savedContent: '',
+  autoSave: Boolean(loadUiPrefs().autoSave),
+  propertiesAnchored: Boolean(loadUiPrefs().propertiesAnchored),
 
   articleTypes: [],
   language: 'en-us',
@@ -144,6 +188,8 @@ export const useConsoleStore = create<ConsoleStore>((set, get) => ({
   selectFolder: async (id) => {
     set({
       selectedFolderId: id,
+      selectedFolderIds: id ? new Set([id]) : new Set(),
+      folderSelectionAnchorId: id,
       selectedArticleId: null,
       selectedArticleIds: new Set(),
       articleSelectionAnchorId: null,
@@ -154,6 +200,50 @@ export const useConsoleStore = create<ConsoleStore>((set, get) => ({
       mobilePanel: 'articles',
     })
     if (id) await get().loadArticles(id)
+  },
+
+  toggleFolderSelected: (id) => {
+    const next = new Set(get().selectedFolderIds)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    // Multi-select does not change the open folder / article list.
+    set({
+      selectedFolderIds: next,
+      folderSelectionAnchorId: id,
+    })
+  },
+
+  selectFolderRange: (toId) => {
+    const { folders, folderSelectionAnchorId, selectedFolderIds } = get()
+    const order = collectFolderIdsDepthFirst(folders)
+    const anchor = folderSelectionAnchorId ?? toId
+    const from = order.indexOf(anchor)
+    const to = order.indexOf(toId)
+    if (from < 0 || to < 0) {
+      get().toggleFolderSelected(toId)
+      return
+    }
+    const [start, end] = from < to ? [from, to] : [to, from]
+    const next = new Set(selectedFolderIds)
+    for (let i = start; i <= end; i++) next.add(order[i]!)
+    set({
+      selectedFolderIds: next,
+      folderSelectionAnchorId: anchor,
+    })
+  },
+
+  clearFolderSelection: () =>
+    set({
+      selectedFolderIds: get().selectedFolderId
+        ? new Set([get().selectedFolderId!])
+        : new Set(),
+      folderSelectionAnchorId: get().selectedFolderId,
+    }),
+
+  getSelectedFolderIds: () => {
+    const { selectedFolderIds, selectedFolderId } = get()
+    if (selectedFolderIds.size > 0) return [...selectedFolderIds]
+    return selectedFolderId ? [selectedFolderId] : []
   },
 
   toggleFolderExpanded: (id) => {
@@ -214,6 +304,8 @@ export const useConsoleStore = create<ConsoleStore>((set, get) => ({
         articleLoadError: null,
         draftTitle: '',
         draftContent: '',
+        savedTitle: '',
+        savedContent: '',
         articleDirty: false,
       })
       return
@@ -235,6 +327,8 @@ export const useConsoleStore = create<ConsoleStore>((set, get) => ({
         articleLoadError: null,
         draftTitle: article.name,
         draftContent: article.content,
+        savedTitle: article.name,
+        savedContent: article.content,
         articleDirty: false,
       })
     } catch (err) {
@@ -310,23 +404,78 @@ export const useConsoleStore = create<ConsoleStore>((set, get) => ({
     return selectedArticleId ? [selectedArticleId] : []
   },
 
-  copySelectionToClipboard: () => {
-    const ids = get().getSelectedArticleIds()
-    if (ids.length === 0) return
-    set({ articleClipboard: { articleIds: ids, mode: 'copy' } })
+  copyArticlesToClipboard: (ids) => {
+    const list = ids ?? get().getSelectedArticleIds()
+    if (!list.length) return
+    set({ clipboard: { kind: 'articles', ids: list, mode: 'copy' } })
   },
 
-  clearArticleClipboard: () => set({ articleClipboard: null }),
+  cutArticlesToClipboard: (ids) => {
+    const list = ids ?? get().getSelectedArticleIds()
+    if (!list.length) return
+    set({ clipboard: { kind: 'articles', ids: list, mode: 'cut' } })
+  },
+
+  copyFoldersToClipboard: (ids) => {
+    const list = ids ?? get().getSelectedFolderIds()
+    if (!list.length) return
+    set({ clipboard: { kind: 'folders', ids: list, mode: 'copy' } })
+  },
+
+  cutFoldersToClipboard: (ids) => {
+    const list = ids ?? get().getSelectedFolderIds()
+    if (!list.length) return
+    set({ clipboard: { kind: 'folders', ids: list, mode: 'cut' } })
+  },
+
+  clearClipboard: () => set({ clipboard: null }),
 
   setDraggingArticleIds: (ids) => set({ draggingArticleIds: ids }),
 
   setDraftTitle: (title) =>
-    set({ draftTitle: title, articleDirty: true }),
+    set((s) => ({
+      draftTitle: title,
+      articleDirty: draftsDirty(title, s.draftContent, s.savedTitle, s.savedContent),
+    })),
 
   setDraftContent: (html) =>
-    set({ draftContent: html, articleDirty: true }),
+    set((s) => ({
+      draftContent: html,
+      articleDirty: draftsDirty(s.draftTitle, html, s.savedTitle, s.savedContent),
+    })),
 
-  markClean: () => set({ articleDirty: false }),
+  acceptEditorBaseline: (html) =>
+    set((s) => {
+      const contentWasDirty = s.draftContent !== s.savedContent
+      if (contentWasDirty) {
+        return {
+          draftContent: html,
+          articleDirty: draftsDirty(s.draftTitle, html, s.savedTitle, s.savedContent),
+        }
+      }
+      return {
+        draftContent: html,
+        savedContent: html,
+        articleDirty: s.draftTitle !== s.savedTitle,
+      }
+    }),
+
+  markClean: () =>
+    set((s) => ({
+      articleDirty: false,
+      savedTitle: s.draftTitle,
+      savedContent: s.draftContent,
+    })),
+
+  setAutoSave: (enabled) => {
+    saveUiPrefs({ autoSave: enabled })
+    set({ autoSave: enabled })
+  },
+
+  setPropertiesAnchored: (anchored) => {
+    saveUiPrefs({ propertiesAnchored: anchored })
+    set({ propertiesAnchored: anchored })
+  },
 
   applyArticleApiResult: (article) => {
     rememberArticleLastModified(article.id, article.lastModifiedDate)
@@ -354,27 +503,17 @@ export const useConsoleStore = create<ConsoleStore>((set, get) => ({
       return
     }
 
-    if (state.articleDirty) {
-      // Keep in-progress title/content; always take concurrency + lock from API.
-      set({
-        articles,
-        articleDetail: {
-          ...article,
-          name: state.draftTitle || article.name,
-          content: state.draftContent || article.content,
-          lastModifiedDate:
-            article.lastModifiedDate ?? state.articleDetail?.lastModifiedDate,
-        },
-      })
-      return
-    }
-
+    // Keep editor drafts (often TinyMCE-normalized) so a save/check-in does not
+    // reintroduce a false dirty flag when the API returns different markup.
     set({
       articles,
-      articleDetail: article,
-      draftTitle: article.name,
-      draftContent: article.content,
-      articleDirty: false,
+      articleDetail: {
+        ...article,
+        name: state.draftTitle || article.name,
+        content: state.draftContent || article.content,
+        lastModifiedDate:
+          article.lastModifiedDate ?? state.articleDetail?.lastModifiedDate,
+      },
     })
   },
 
@@ -437,16 +576,20 @@ export const useConsoleStore = create<ConsoleStore>((set, get) => ({
     set({
       folders: [],
       selectedFolderId: null,
+      selectedFolderIds: new Set(),
+      folderSelectionAnchorId: null,
       articles: [],
       selectedArticleId: null,
       selectedArticleIds: new Set(),
       articleSelectionAnchorId: null,
-      articleClipboard: null,
+      clipboard: null,
       draggingArticleIds: [],
       articleDetail: null,
       articleLoadError: null,
       draftTitle: '',
       draftContent: '',
+      savedTitle: '',
+      savedContent: '',
       articleDirty: false,
       searchResults: [],
       globalSearch: '',

@@ -1,0 +1,52 @@
+.menu {
+  position: fixed;
+  z-index: 1000;
+  min-width: 10.5rem;
+  padding: 0.3rem;
+  border: 1px solid var(--eg-border);
+  border-radius: var(--eg-radius);
+  background: var(--eg-surface);
+  box-shadow: var(--eg-shadow);
+}
+
+.item {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  padding: 0.4rem 0.65rem;
+  border-radius: calc(var(--eg-radius) - 2px);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--eg-ink);
+  cursor: pointer;
+}
+
+.item:hover:not(:disabled),
+.item:focus-visible:not(:disabled) {
+  background: var(--eg-brand-soft);
+  color: var(--eg-brand-dark);
+  outline: none;
+}
+
+.item:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.danger {
+  color: var(--eg-danger);
+}
+
+.danger:hover:not(:disabled),
+.danger:focus-visible:not(:disabled) {
+  background: var(--eg-danger-bg);
+  color: var(--eg-danger);
+}
+
+.separator {
+  height: 1px;
+  margin: 0.25rem 0.35rem;
+  background: var(--eg-border);
+}

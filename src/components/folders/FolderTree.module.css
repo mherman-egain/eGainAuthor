@@ -70,10 +70,19 @@
   background: var(--eg-surface-3);
 }
 
-.nodeBtn[aria-selected='true'] {
+.nodeBtn[aria-selected='true'],
+.nodeSelected {
   background: var(--eg-brand-soft);
   color: var(--eg-brand-dark);
   font-weight: 600;
+}
+
+.nodeOpen:not(.nodeSelected) {
+  background: var(--eg-surface-3);
+}
+
+.nodeCut {
+  opacity: 0.45;
 }
 
 .dropTarget {
@@ -81,18 +90,67 @@
   background: var(--eg-brand-soft) !important;
 }
 
-.chevron {
-  width: 1rem;
-  color: var(--eg-muted);
+.checkbox {
   flex: 0 0 auto;
-  font-size: 0.65rem;
+  margin: 0;
+  width: 14px;
+  height: 14px;
+  accent-color: var(--eg-brand);
+  cursor: pointer;
+  opacity: 0.4;
 }
 
-.folderIcon {
+.nodeBtn:hover .checkbox,
+.nodeBtn:focus-within .checkbox,
+.nodeSelected .checkbox {
+  opacity: 1;
+}
+
+.count {
+  font-weight: 600;
+  color: var(--eg-brand);
+}
+
+.linkBtn {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: var(--eg-brand);
+  font-weight: 700;
+  font-size: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.linkBtn:hover {
+  color: var(--eg-brand-dark);
+}
+
+.hint {
+  margin: 0;
+  padding: 0.35rem 0.75rem 0.75rem;
+  font-size: 0.7rem;
+  color: var(--eg-muted);
+  line-height: 1.35;
+}
+
+.chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  margin: -0.25rem 0 -0.25rem -0.2rem;
   color: var(--eg-muted);
   flex: 0 0 auto;
-  font-size: 0.85rem;
-  opacity: 0.85;
+  font-size: 1rem;
+  line-height: 1;
+  border-radius: var(--eg-radius);
+}
+
+.chevron[role='button']:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--eg-ink);
 }
 
 .name {
