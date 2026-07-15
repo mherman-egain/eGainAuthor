@@ -1,6 +1,6 @@
 export type ArticleStatus = 'draft' | 'live' | 'pending' | 'retired' | 'unknown'
 
-export type AuthMode = 'oauth' | 'session' | 'demo'
+export type AuthMode = 'session' | 'demo'
 
 export interface UserLanguage {
   code: string

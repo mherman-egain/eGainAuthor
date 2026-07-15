@@ -1,7 +1,6 @@
-import { useMemo, useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { Navigate } from 'react-router-dom'
 import { Button } from '@/components/common/Button'
-import { getOAuthConfig } from '@/api/auth'
 import { useSessionStore } from '@/store/sessionStore'
 import { loadJson, STORAGE_KEYS } from '@/utils/storage'
 import { normalizeServerUrl } from '@/utils/format'
@@ -12,7 +11,6 @@ export function LoginPage() {
     serverUrl,
     setServerUrl,
     loginWithPassword,
-    loginWithOAuth,
     enterDemoMode,
     isAuthenticated,
   } = useSessionStore()
@@ -23,7 +21,6 @@ export function LoginPage() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const oauthReady = useMemo(() => Boolean(getOAuthConfig()), [])
   const recent = loadJson<string[]>(STORAGE_KEYS.recentServers, [])
 
   if (isAuthenticated()) {
@@ -37,32 +34,17 @@ export function LoginPage() {
     return normalized
   }
 
-  const onLogin = async () => {
+  const onPassword = async (e: FormEvent) => {
+    e.preventDefault()
     setError(null)
     if (!url.trim()) {
       setError('Enter your eGain server URL first.')
       return
     }
-    setBusy(true)
-    try {
-      applyServer()
-      if (oauthReady) {
-        await loginWithOAuth()
-        return
-      }
-      setError(
-        'OAuth is not configured. Set VITE_OAUTH_CLIENT_ID, VITE_OAUTH_AUTH_URL, and VITE_OAUTH_TOKEN_URL in .env — or use Password session login / Demo Mode.',
-      )
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed')
-    } finally {
-      setBusy(false)
+    if (!userName.trim() || !password) {
+      setError('Enter your username and password.')
+      return
     }
-  }
-
-  const onPassword = async (e: FormEvent) => {
-    e.preventDefault()
-    setError(null)
     setBusy(true)
     try {
       applyServer()
@@ -119,84 +101,63 @@ export function LoginPage() {
         <div className={styles.card}>
           <h1>Sign in</h1>
           <p className={styles.cardIntro}>
-            Enter your tenant server URL, then Login to open the OAuth / remote
-            authentication flow for your client application and user.
+            Enter your tenant server URL and credentials. Login creates an{' '}
+            <code>X-egain-session</code> for Knowledge Authoring APIs.
           </p>
 
           {error ? <div className={styles.error}>{error}</div> : null}
 
-          <div className={styles.field}>
-            <label htmlFor="serverUrl">Server URL</label>
-            <input
-              id="serverUrl"
-              name="serverUrl"
-              placeholder="https://your-tenant.egain.cloud"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              list="recent-servers"
-              autoComplete="url"
-            />
-            <datalist id="recent-servers">
-              {recent.map((r) => (
-                <option key={r} value={r} />
-              ))}
-            </datalist>
-          </div>
+          <form onSubmit={(e) => void onPassword(e)}>
+            <div className={styles.field}>
+              <label htmlFor="serverUrl">Server URL</label>
+              <input
+                id="serverUrl"
+                name="serverUrl"
+                placeholder="https://your-tenant.egain.cloud"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                list="recent-servers"
+                autoComplete="url"
+              />
+              <datalist id="recent-servers">
+                {recent.map((r) => (
+                  <option key={r} value={r} />
+                ))}
+              </datalist>
+            </div>
 
-          <div className={styles.actions}>
-            <Button
-              variant="primary"
-              disabled={busy || !url.trim()}
-              onClick={() => void onLogin()}
-            >
-              {busy ? 'Connecting…' : 'Login'}
-            </Button>
-            {!oauthReady ? (
-              <p className={styles.hint} style={{ margin: 0 }}>
-                OAuth env vars are not set yet. Configure <code>VITE_OAUTH_*</code>, use
-                password session login, or enter Demo Mode.
-              </p>
-            ) : (
-              <p className={styles.hint} style={{ margin: 0 }}>
-                Login opens OAuth (Authorization Code + PKCE) against your tenant.
-              </p>
-            )}
-          </div>
+            <div className={styles.field}>
+              <label htmlFor="userName">Username</label>
+              <input
+                id="userName"
+                value={userName}
+                onChange={(e) => setUserName(e.target.value)}
+                autoComplete="username"
+              />
+            </div>
 
-          <div className={styles.divider}>or</div>
+            <div className={styles.field}>
+              <label htmlFor="password">Password</label>
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
+              />
+            </div>
 
-          <details className={styles.advanced}>
-            <summary>Password session login (X-egain-session)</summary>
-            <form onSubmit={(e) => void onPassword(e)}>
-              <div className={styles.field}>
-                <label htmlFor="userName">Username</label>
-                <input
-                  id="userName"
-                  value={userName}
-                  onChange={(e) => setUserName(e.target.value)}
-                  autoComplete="username"
-                />
-              </div>
-              <div className={styles.field}>
-                <label htmlFor="password">Password</label>
-                <input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  autoComplete="current-password"
-                />
-              </div>
+            <div className={styles.actions}>
               <Button
-                variant="default"
-                disabled={busy || !userName || !password || !url.trim()}
+                variant="primary"
                 type="submit"
+                disabled={busy || !url.trim() || !userName.trim() || !password}
                 style={{ width: '100%' }}
               >
-                Login with password
+                {busy ? 'Signing in…' : 'Login'}
               </Button>
-            </form>
-          </details>
+            </div>
+          </form>
 
           <div className={styles.divider}>explore without a tenant</div>
 
@@ -208,11 +169,6 @@ export function LoginPage() {
           >
             Enter Demo Mode
           </Button>
-
-          <p className={styles.hint}>
-            OAuth redirect URI (register on the client app):{' '}
-            <code>{window.location.origin}/oauth/callback</code>
-          </p>
         </div>
       </section>
     </div>

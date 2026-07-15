@@ -6,13 +6,7 @@ import {
   createLiveClient,
   type ApiClient,
 } from '@/api/client'
-import {
-  completeOAuthCallback,
-  getOAuthConfig,
-  resolveLoggedInUser,
-  sessionLogin,
-  startOAuthLogin,
-} from '@/api/auth'
+import { resolveLoggedInUser, sessionLogin } from '@/api/auth'
 import { clearArticleLastModified } from '@/api/articleStamp'
 import { normalizeServerUrl } from '@/utils/format'
 
@@ -23,8 +17,6 @@ type SessionStore = SessionState & {
   setServerUrl: (url: string) => void
   enterDemoMode: () => Promise<void>
   loginWithPassword: (userName: string, password: string) => Promise<void>
-  loginWithOAuth: () => Promise<void>
-  finishOAuth: (code: string, state: string) => Promise<void>
   setUser: (user: UserProfile | null) => void
   logout: () => Promise<void>
   getClient: () => ApiClient
@@ -103,12 +95,14 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       return
     }
 
-    if (saved?.sessionId || saved?.accessToken) {
+    if (saved?.sessionId) {
       const departmentId = departmentFromUser(saved.user) || saved.departmentId
-      const restored = { ...saved, departmentId }
+      const restored = { ...saved, departmentId, authMode: 'session' as AuthMode }
       const live = buildLiveClient(restored)
       set({
         ...restored,
+        accessToken: undefined,
+        refreshToken: undefined,
         client: live,
         bootstrapped: true,
       })
@@ -118,7 +112,6 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
           {
             serverUrl: restored.serverUrl,
             sessionId: restored.sessionId,
-            accessToken: restored.accessToken,
           },
           saved.user?.userName,
           saved.user,
@@ -191,43 +184,6 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     })
   },
 
-  loginWithOAuth: async () => {
-    const serverUrl = normalizeServerUrl(get().serverUrl)
-    if (!getOAuthConfig()) {
-      throw new Error(
-        'OAuth client is not configured. Add VITE_OAUTH_CLIENT_ID, VITE_OAUTH_AUTH_URL, and VITE_OAUTH_TOKEN_URL, or use password login / Demo Mode.',
-      )
-    }
-    get().setServerUrl(serverUrl)
-    await startOAuthLogin(serverUrl)
-  },
-
-  finishOAuth: async (code, state) => {
-    const tokens = await completeOAuthCallback(code, state)
-    const auth = {
-      serverUrl: tokens.serverUrl,
-      accessToken: tokens.accessToken,
-      language: 'en-us' as const,
-    }
-    const user = await resolveLoggedInUser(auth)
-    const language = user.defaultLanguage || 'en-us'
-    const next: SessionState = {
-      serverUrl: tokens.serverUrl,
-      authMode: 'oauth' as AuthMode,
-      demoMode: false,
-      accessToken: tokens.accessToken,
-      refreshToken: tokens.refreshToken,
-      expiresAt: tokens.expiresAt,
-      user,
-      departmentId: user.departmentId,
-    }
-    persistSession(next)
-    set({ ...next, client: buildLiveClient(next, language) })
-    void import('./consoleStore').then(({ useConsoleStore }) => {
-      useConsoleStore.getState().setLanguage(language)
-    })
-  },
-
   setUser: (user) => {
     const cur = get()
     const departmentId = departmentFromUser(user)
@@ -284,6 +240,6 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   isAuthenticated: () => {
     const s = get()
-    return Boolean(s.client && (s.demoMode || s.sessionId || s.accessToken))
+    return Boolean(s.client && (s.demoMode || s.sessionId))
   },
 }))

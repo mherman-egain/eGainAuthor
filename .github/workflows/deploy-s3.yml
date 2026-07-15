@@ -12,8 +12,8 @@
 #   AWS_REGION                 (default us-west-2)
 #   S3_BUCKET_NAME             (default egain-presales-demo-websites)
 #   CLOUDFRONT_DISTRIBUTION_ID (invalidates CDN cache when set)
-#   VITE_DEFAULT_SERVER_URL, VITE_OAUTH_CLIENT_ID, VITE_OAUTH_AUTH_URL,
-#   VITE_OAUTH_TOKEN_URL, VITE_OAUTH_REDIRECT_URI, VITE_OAUTH_SCOPES
+#   VITE_DEFAULT_SERVER_URL, VITE_CONTEXT_ROOT, VITE_API_VERSION,
+#   VITE_API_PROXY_BASE
 #
 # NEVER commit AWS credentials to the repository.
 
@@ -33,7 +33,6 @@ env:
   VITE_BASE_PATH: /demo/mherman/author/
   DEFAULT_AWS_REGION: us-west-2
   DEFAULT_S3_BUCKET: egain-presales-demo-websites
-  DEFAULT_OAUTH_REDIRECT: https://aznadestzw4.egdemo.info/demo/mherman/author/index.html
 
 jobs:
   deploy:
@@ -60,18 +59,10 @@ jobs:
           # S3/CloudFront has no Vite /api-proxy — call the tenant directly (CORS must allow this origin).
           VITE_API_DIRECT: 'true'
           VITE_DEFAULT_SERVER_URL: ${{ secrets.VITE_DEFAULT_SERVER_URL }}
-          VITE_OAUTH_CLIENT_ID: ${{ secrets.VITE_OAUTH_CLIENT_ID }}
-          VITE_OAUTH_AUTH_URL: ${{ secrets.VITE_OAUTH_AUTH_URL }}
-          VITE_OAUTH_TOKEN_URL: ${{ secrets.VITE_OAUTH_TOKEN_URL }}
-          VITE_OAUTH_SCOPES: ${{ secrets.VITE_OAUTH_SCOPES }}
-          VITE_OAUTH_REDIRECT_URI: ${{ secrets.VITE_OAUTH_REDIRECT_URI }}
           VITE_CONTEXT_ROOT: ${{ secrets.VITE_CONTEXT_ROOT }}
           VITE_API_VERSION: ${{ secrets.VITE_API_VERSION }}
           VITE_API_PROXY_BASE: ${{ secrets.VITE_API_PROXY_BASE }}
         run: |
-          if [ -z "$VITE_OAUTH_REDIRECT_URI" ]; then
-            export VITE_OAUTH_REDIRECT_URI="$DEFAULT_OAUTH_REDIRECT"
-          fi
           # Prefer an explicit reverse proxy when configured.
           if [ -n "$VITE_API_PROXY_BASE" ]; then
             unset VITE_API_DIRECT
