@@ -92,7 +92,7 @@ export function LoginPage() {
         <div className={styles.brandMark}>
           <img
             className={styles.logoImg}
-            src="/egain-logo.png"
+            src={`${import.meta.env.BASE_URL}egain-logo.png`}
             alt="eGain"
             height={36}
           />

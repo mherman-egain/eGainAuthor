@@ -61,7 +61,7 @@ export function Header({ onCreateArticle }: Props) {
       <div className={styles.brand}>
         <img
           className={styles.logoImg}
-          src="/egain-logo.png"
+          src={`${import.meta.env.BASE_URL}egain-logo.png`}
           alt="eGain"
           height={28}
         />
