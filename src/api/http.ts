@@ -89,6 +89,45 @@ export function proxyWs(absoluteWsPath: string): string {
 }
 
 /**
+ * Resolve a browser fetch URL for authoring API calls.
+ *
+ * Paths are always generated as `/api-proxy/...` (same as local Vite).
+ * - Dev / preview: Vite middleware handles `/api-proxy`.
+ * - Production (S3/CloudFront): there is no proxy unless configured.
+ *
+ * Override with:
+ * - `VITE_API_PROXY_BASE` → absolute proxy host prefix (e.g. https://api.example.com)
+ * - `VITE_API_DIRECT=true` → call the tenant `serverUrl` directly (needs CORS)
+ *
+ * Deployed S3 builds default to direct mode when neither env is set.
+ */
+export function resolveApiUrl(path: string, serverUrl?: string): string {
+  if (/^https?:\/\//i.test(path)) return path
+
+  const proxyBase = (import.meta.env.VITE_API_PROXY_BASE as string | undefined)?.replace(
+    /\/+$/,
+    '',
+  )
+  if (proxyBase) {
+    const suffix = path.startsWith('/') ? path : `/${path}`
+    return `${proxyBase}${suffix}`
+  }
+
+  const directFlag = import.meta.env.VITE_API_DIRECT
+  const useDirect =
+    directFlag === 'true' ||
+    (import.meta.env.PROD && directFlag !== 'false' && !proxyBase)
+
+  if (useDirect && serverUrl) {
+    const origin = serverUrl.replace(/\/+$/, '')
+    const suffix = path.replace(/^\/api-proxy/, '')
+    return `${origin}${suffix.startsWith('/') ? suffix : `/${suffix}`}`
+  }
+
+  return path
+}
+
+/**
  * All authoring API calls send:
  * - Accept: application/json
  * - Content-Type: application/json (unless skipJsonContentType for OAuth form posts)
@@ -103,6 +142,7 @@ export async function apiRequest<T = unknown>(
   const { raw, skipJsonContentType, ...init } = options
   const headers = new Headers(init.headers)
   const method = (init.method || 'GET').toUpperCase()
+  const url = resolveApiUrl(path, auth.serverUrl)
 
   headers.set('Accept', 'application/json')
   headers.set('Accept-Language', acceptLanguage(auth.language))
@@ -118,11 +158,12 @@ export async function apiRequest<T = unknown>(
   if (auth.accessToken) {
     headers.set('Authorization', `Bearer ${auth.accessToken}`)
   }
-  if (auth.serverUrl) {
+  // Only needed when going through a reverse proxy that picks the tenant.
+  if (auth.serverUrl && url.includes('/api-proxy')) {
     headers.set('X-Target-Server', auth.serverUrl)
   }
 
-  const response = await fetch(path, {
+  const response = await fetch(url, {
     ...init,
     method,
     headers,
@@ -148,7 +189,7 @@ export async function apiRequest<T = unknown>(
 
   if (import.meta.env.DEV && !response.ok) {
     console.warn(
-      `[apiRequest] ${method} ${path} → ${response.status}`,
+      `[apiRequest] ${method} ${url} → ${response.status}`,
       typeof data === 'object' && data
         ? Object.keys(data as object).slice(0, 8)
         : typeof data,
@@ -179,6 +220,19 @@ export async function apiRequest<T = unknown>(
       (top?.code ? `${top.code}` : '') ||
       (typeof data === 'string' ? data : '') ||
       `Request failed (${response.status})`
+
+    // CloudFront S3 distributions return HTML 403 for POST — make that readable.
+    if (
+      typeof message === 'string' &&
+      (message.includes('cloudfront') ||
+        message.includes('ERROR: The request could not be satisfied') ||
+        message.includes('<!DOCTYPE'))
+    ) {
+      message =
+        'API proxy is not available on this host (CloudFront/S3 only serves static files). ' +
+        'Use Demo Mode, enable direct tenant calls (VITE_API_DIRECT), or configure an /api-proxy origin.'
+    }
+
     const xmlMsg = /<message>([^<]+)<\/message>/i.exec(String(message))
     if (xmlMsg) message = xmlMsg[1]
 

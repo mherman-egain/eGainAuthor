@@ -57,6 +57,8 @@ jobs:
       - name: Build
         env:
           VITE_BASE_PATH: ${{ env.VITE_BASE_PATH }}
+          # S3/CloudFront has no Vite /api-proxy — call the tenant directly (CORS must allow this origin).
+          VITE_API_DIRECT: 'true'
           VITE_DEFAULT_SERVER_URL: ${{ secrets.VITE_DEFAULT_SERVER_URL }}
           VITE_OAUTH_CLIENT_ID: ${{ secrets.VITE_OAUTH_CLIENT_ID }}
           VITE_OAUTH_AUTH_URL: ${{ secrets.VITE_OAUTH_AUTH_URL }}
@@ -65,9 +67,14 @@ jobs:
           VITE_OAUTH_REDIRECT_URI: ${{ secrets.VITE_OAUTH_REDIRECT_URI }}
           VITE_CONTEXT_ROOT: ${{ secrets.VITE_CONTEXT_ROOT }}
           VITE_API_VERSION: ${{ secrets.VITE_API_VERSION }}
+          VITE_API_PROXY_BASE: ${{ secrets.VITE_API_PROXY_BASE }}
         run: |
           if [ -z "$VITE_OAUTH_REDIRECT_URI" ]; then
             export VITE_OAUTH_REDIRECT_URI="$DEFAULT_OAUTH_REDIRECT"
+          fi
+          # Prefer an explicit reverse proxy when configured.
+          if [ -n "$VITE_API_PROXY_BASE" ]; then
+            unset VITE_API_DIRECT
           fi
           npm run build
 

@@ -3,6 +3,7 @@ import {
   apiRequest,
   extractSessionId,
   proxyWs,
+  resolveApiUrl,
   wsPath,
   type RequestAuth,
 } from './http'
@@ -96,16 +97,23 @@ export async function completeOAuthCallback(
   })
 
   const tokenPath = saved.tokenUrl.startsWith('http')
-    ? `/api-proxy${new URL(saved.tokenUrl).pathname}${new URL(saved.tokenUrl).search}`
-    : saved.tokenUrl
+    ? resolveApiUrl(
+        `/api-proxy${new URL(saved.tokenUrl).pathname}${new URL(saved.tokenUrl).search}`,
+        saved.serverUrl,
+      )
+    : resolveApiUrl(saved.tokenUrl, saved.serverUrl)
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/x-www-form-urlencoded',
+    Accept: 'application/json',
+  }
+  if (tokenPath.includes('/api-proxy')) {
+    headers['X-Target-Server'] = saved.serverUrl
+  }
 
   const response = await fetch(tokenPath, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      Accept: 'application/json',
-      'X-Target-Server': saved.serverUrl,
-    },
+    headers,
     body,
   })
 

@@ -43,7 +43,13 @@ Do **not** put AWS keys in the repo or in `.env` files that get committed.
 
 ### API proxy on CloudFront
 
-The Vite `/api-proxy` middleware exists only in local `npm run dev` / `preview`. For live tenant APIs behind CloudFront, configure a matching origin/path behavior (or use **Demo Mode** / password login only if CORS allows).
+The Vite `/api-proxy` middleware exists only in local `npm run dev` / `preview`. The S3 deploy uses **`VITE_API_DIRECT=true`**, so the browser calls your eGain tenant URL directly.
+
+That requires the tenant to allow CORS from:
+
+`https://aznadestzw4.egdemo.info`
+
+If login fails with a CORS error in the browser console, allow that origin in eGain (or set `VITE_API_PROXY_BASE` to a real reverse-proxy URL that supports POST).
 
 ## Routes
 
