@@ -21,6 +21,11 @@
   padding-left: 0.25rem;
 }
 
+.count {
+  font-weight: 600;
+  color: var(--eg-brand);
+}
+
 .list {
   flex: 1;
   overflow: auto;
@@ -42,8 +47,13 @@
   background: var(--eg-surface-3);
 }
 
-.item[aria-selected='true'] {
+.item[aria-selected='true'],
+.itemSelected {
   background: var(--eg-brand-soft);
+}
+
+.item:active {
+  cursor: grabbing;
 }
 
 .itemName {
@@ -91,4 +101,12 @@
 .retired {
   background: var(--eg-surface-3);
   color: var(--eg-muted);
+}
+
+.hint {
+  margin: 0;
+  padding: 0.35rem 0.85rem 0.75rem;
+  font-size: 0.68rem;
+  color: var(--eg-muted);
+  line-height: 1.35;
 }

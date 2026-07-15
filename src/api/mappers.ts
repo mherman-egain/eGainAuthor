@@ -191,8 +191,30 @@ function pickCheckoutUser(
   return {}
 }
 
-/** Prefer the checked-out (transient) version; else highest version number. */
-function pickLatestVersion(o: Record<string, unknown>): Record<string, unknown> {
+/**
+ * Concurrency lastModified MUST come from versions.version[].lastModified.date.
+ * Article-level lastModified often differs and causes 412 on edit/checkin.
+ */
+export function extractVersionLastModified(raw: unknown): string | undefined {
+  const version = pickWorkingVersion(asRecord(raw))
+  return pickDate(version, 'lastModified', 'lastModifiedDate')
+}
+
+/** @deprecated use extractVersionLastModified — name kept for call sites. */
+export function extractArticleLastModified(raw: unknown): string | undefined {
+  return extractVersionLastModified(raw)
+}
+
+export function extractWorkingVersionId(raw: unknown): string | undefined {
+  const version = pickWorkingVersion(asRecord(raw))
+  return pickString(version.id, version.versionId)
+}
+
+/**
+ * Prefer checked-out / transient working copy; else highest versionNumber.
+ * Exported for concurrency helpers that need the version object itself.
+ */
+export function pickWorkingVersion(o: Record<string, unknown>): Record<string, unknown> {
   const versions = unwrapList(o.versions ?? o.version, ['version'])
   if (versions.length === 0) return {}
 
@@ -218,6 +240,11 @@ function pickLatestVersion(o: Record<string, unknown>): Record<string, unknown> 
     }
   }
   return best
+}
+
+/** @deprecated alias — use pickWorkingVersion */
+function pickLatestVersion(o: Record<string, unknown>): Record<string, unknown> {
+  return pickWorkingVersion(o)
 }
 
 /** True when this article is locked for edit by the given session user. */
@@ -305,9 +332,8 @@ export function mapArticleSummary(raw: unknown, folderIdFallback?: string): Arti
     createdBy: pickString(createdBy.name, createdBy.userName, o.createdBy),
     createdDate: pickDate(o, 'created', 'createdDate'),
     lastModifiedBy: pickString(lastModBy.name, lastModBy.userName, o.lastModifiedBy),
-    lastModifiedDate:
-      pickDate(version, 'lastModified', 'lastModifiedDate') ??
-      pickDate(o, 'lastModified', 'lastModifiedDate'),
+    // Only version lastModified — article-level date is a different field.
+    lastModifiedDate: extractVersionLastModified(o),
     language: pickString(lang.code, o.language, o.$lang) ?? 'en-us',
     checkedOut,
     checkedOutBy: pickString(
@@ -320,10 +346,9 @@ export function mapArticleSummary(raw: unknown, folderIdFallback?: string): Arti
     version: pickString(
       version.versionNumber,
       version.number,
-      asRecord(o.version).id,
-      o.version,
       o.versionNumber,
     ),
+    versionId: pickString(version.id, version.versionId),
     includeInGenAI:
       o.includeInGenAI === true ||
       o.includeInGenAI === 'yes' ||

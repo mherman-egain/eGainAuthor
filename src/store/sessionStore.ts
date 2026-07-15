@@ -13,6 +13,7 @@ import {
   sessionLogin,
   startOAuthLogin,
 } from '@/api/auth'
+import { clearArticleLastModified } from '@/api/articleStamp'
 import { normalizeServerUrl } from '@/utils/format'
 
 type SessionStore = SessionState & {
@@ -257,6 +258,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       // ignore
     }
     clearSession()
+    clearArticleLastModified()
     set({
       accessToken: undefined,
       refreshToken: undefined,

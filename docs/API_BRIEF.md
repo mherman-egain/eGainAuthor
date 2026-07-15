@@ -158,7 +158,7 @@ Also common: `department: { "id", "name" }`, `language: { "id", "code", "label" 
 |--------|------|
 | `POST` | `/ws/v20/composite` |
 
-Body: array of nested requests with absolute URLs:
+Body: array of nested requests with **absolute** URLs (host + context + path):
 
 ```json
 {
@@ -173,7 +173,9 @@ Body: array of nested requests with absolute URLs:
 }
 ```
 
-Auth: composite itself may omit login, but nested calls share one `X-egain-session`. Response: `resultObject[]` with `httpStatus` + nested payload.
+Auth: nested calls share one `X-egain-session`. Outer status is often **201**; check each `resultObject[].httpStatus` (failures do not stop later nested calls). Nested bodies are fixed at submit time — cannot use response of call N as body of call N+1.
+
+**App usage:** `src/api/composite.ts`. Prefer when fan-out needs many one-id endpoints (e.g. multi **copy/paste**). Prefer native multi-ID APIs for **move** / **delete** (`…/article/{ids}/…`).
 
 ---
 

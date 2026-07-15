@@ -57,6 +57,11 @@
   font-weight: 600;
 }
 
+.dropTarget {
+  outline: 2px solid var(--eg-brand);
+  background: var(--eg-brand-soft) !important;
+}
+
 .chevron {
   width: 1rem;
   color: var(--eg-muted);

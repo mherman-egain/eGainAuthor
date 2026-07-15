@@ -315,6 +315,7 @@ export class DemoStore {
     a.checkedOut = true
     a.checkedOutBy = `${this.user.firstName} ${this.user.lastName}`
     a.checkedOutById = this.user.id
+    a.lastModifiedDate = new Date().toISOString()
     const idx = this.articles.findIndex((x) => x.id === id)
     this.articles[idx] = a
     return a
@@ -325,6 +326,7 @@ export class DemoStore {
     a.checkedOut = false
     a.checkedOutBy = undefined
     a.checkedOutById = undefined
+    a.lastModifiedDate = new Date().toISOString()
     const idx = this.articles.findIndex((x) => x.id === id)
     this.articles[idx] = a
     return a
@@ -336,6 +338,7 @@ export class DemoStore {
     a.checkedOut = false
     a.checkedOutBy = undefined
     a.checkedOutById = undefined
+    a.lastModifiedDate = new Date().toISOString()
     a.publishDate = new Date().toISOString()
     a.includeInGenAI = a.includeInGenAI ?? true
     a.versions = [

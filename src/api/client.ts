@@ -33,15 +33,34 @@ export type ApiClient = {
   createArticle: (input: CreateArticleInput) => Promise<ArticleDetail>
   editArticle: (input: EditArticleInput) => Promise<ArticleDetail>
   deleteArticle: (id: string, language?: string) => Promise<void>
+  deleteArticles: (ids: string[], language?: string) => Promise<void>
   moveArticle: (id: string, destinationFolderId: string) => Promise<void>
+  moveArticles: (ids: string[], destinationFolderId: string) => Promise<void>
   copyArticle: (
     id: string,
     destinationFolderId: string,
     language?: string,
   ) => Promise<ArticleDetail | void>
-  checkout: (id: string, lastModifiedDate?: string, language?: string) => Promise<void>
-  checkin: (id: string, lastModifiedDate?: string, language?: string) => Promise<void>
-  publish: (id: string, lastModifiedDate?: string, language?: string) => Promise<void>
+  copyArticles: (
+    ids: string[],
+    destinationFolderId: string,
+    language?: string,
+  ) => Promise<ArticleDetail[]>
+  checkout: (
+    id: string,
+    lastModifiedDate?: string,
+    language?: string,
+  ) => Promise<ArticleDetail>
+  checkin: (
+    id: string,
+    lastModifiedDate?: string,
+    language?: string,
+  ) => Promise<ArticleDetail>
+  publish: (
+    id: string,
+    lastModifiedDate?: string,
+    language?: string,
+  ) => Promise<ArticleDetail>
   getVersions: (id: string, language?: string) => Promise<ArticleVersion[]>
   listArticleTypes: () => Promise<ArticleType[]>
   getAttachments: (id: string, language?: string) => Promise<AttachmentRef[]>
@@ -79,19 +98,21 @@ export function createDemoClient(): ApiClient {
     createArticle: async (input) => store.createArticle(input),
     editArticle: async (input) => store.editArticle(input),
     deleteArticle: async (id) => store.deleteArticle(id),
+    deleteArticles: async (ids) => {
+      for (const id of ids) store.deleteArticle(id)
+    },
     moveArticle: async (id, dest) => {
       store.moveArticle(id, dest)
     },
+    moveArticles: async (ids, dest) => {
+      for (const id of ids) store.moveArticle(id, dest)
+    },
     copyArticle: async (id, dest) => store.copyArticle(id, dest),
-    checkout: async (id) => {
-      store.checkout(id)
-    },
-    checkin: async (id) => {
-      store.checkin(id)
-    },
-    publish: async (id) => {
-      store.publish(id)
-    },
+    copyArticles: async (ids, dest) =>
+      ids.map((id) => store.copyArticle(id, dest)),
+    checkout: async (id) => store.checkout(id),
+    checkin: async (id) => store.checkin(id),
+    publish: async (id) => store.publish(id),
     getVersions: async (id) => store.getArticle(id).versions ?? [],
     listArticleTypes: async () => store.articleTypes,
     getAttachments: async (id) => store.getArticle(id).attachments ?? [],
@@ -124,20 +145,22 @@ export function createLiveClient(auth: RequestAuth): ApiClient {
     createArticle: (input) => articlesApi.createArticle(auth, input),
     editArticle: (input) => articlesApi.editArticle(auth, input),
     deleteArticle: (id, language) => articlesApi.deleteArticle(auth, id, language),
+    deleteArticles: (ids, language) =>
+      articlesApi.deleteArticles(auth, ids, language),
     moveArticle: async (id, dest) => {
       await articlesApi.moveArticles(auth, [id], dest)
     },
+    moveArticles: (ids, dest) => articlesApi.moveArticles(auth, ids, dest),
     copyArticle: (id, dest, language) =>
       articlesApi.copyArticle(auth, id, dest, language),
-    checkout: async (id, lastModifiedDate, language) => {
-      await articlesApi.checkoutArticle(auth, id, lastModifiedDate, language)
-    },
-    checkin: async (id, lastModifiedDate, language) => {
-      await articlesApi.checkinArticle(auth, id, lastModifiedDate, language)
-    },
-    publish: async (id, lastModifiedDate, language) => {
-      await articlesApi.publishArticle(auth, id, lastModifiedDate, language)
-    },
+    copyArticles: (ids, dest, language) =>
+      articlesApi.copyArticles(auth, ids, dest, language),
+    checkout: (id, lastModifiedDate, language) =>
+      articlesApi.checkoutArticle(auth, id, lastModifiedDate, language),
+    checkin: (id, lastModifiedDate, language) =>
+      articlesApi.checkinArticle(auth, id, lastModifiedDate, language),
+    publish: (id, lastModifiedDate, language) =>
+      articlesApi.publishArticle(auth, id, lastModifiedDate, language),
     getVersions: (id, language) => articlesApi.getArticleVersions(auth, id, language),
     listArticleTypes: () => articlesApi.listArticleTypes(auth),
     getAttachments: (id, language) =>

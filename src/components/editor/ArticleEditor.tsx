@@ -2,6 +2,7 @@ import { Button } from '@/components/common/Button'
 import { EmptyState } from '@/components/common/EmptyState'
 import { SkeletonBlock } from '@/components/common/Skeleton'
 import { HtmlEditor } from '@/components/editor/HtmlEditor'
+import { resolveArticleLastModified } from '@/api/articleStamp'
 import { isCheckedOutByUser } from '@/api/mappers'
 import { useConsoleStore } from '@/store/consoleStore'
 import { useSessionStore } from '@/store/sessionStore'
@@ -20,7 +21,7 @@ export function ArticleEditor() {
     setDraftTitle,
     setDraftContent,
     markClean,
-    refreshArticle,
+    applyArticleApiResult,
     language,
     setPropertiesOpen,
   } = useConsoleStore()
@@ -56,13 +57,22 @@ export function ArticleEditor() {
     )
   }
 
+  /** Always use stamp from the most recent article API response. */
+  const currentLastModified = () => {
+    const latest = useConsoleStore.getState().articleDetail
+    return resolveArticleLastModified(
+      latest?.id ?? articleDetail.id,
+      latest?.lastModifiedDate ?? articleDetail.lastModifiedDate,
+    )
+  }
+
   const save = async () => {
     try {
-      await getClient().editArticle({
+      const updated = await getClient().editArticle({
         id: articleDetail.id,
         name: draftTitle,
         content: draftContent,
-        lastModifiedDate: articleDetail.lastModifiedDate,
+        lastModifiedDate: currentLastModified(),
         language,
         notes: articleDetail.notes,
         includeInGenAI: articleDetail.includeInGenAI,
@@ -71,25 +81,26 @@ export function ArticleEditor() {
         summary: articleDetail.summary,
       })
       markClean()
+      applyArticleApiResult(updated)
       pushToast({ type: 'success', message: 'Article saved' })
-      await refreshArticle()
     } catch (err) {
       pushToast({
         type: 'error',
         message: err instanceof Error ? err.message : 'Save failed',
       })
+      throw err
     }
   }
 
   const checkout = async () => {
     try {
-      await getClient().checkout(
+      const updated = await getClient().checkout(
         articleDetail.id,
-        articleDetail.lastModifiedDate,
+        currentLastModified(),
         language,
       )
+      applyArticleApiResult(updated)
       pushToast({ type: 'success', message: 'Article checked out' })
-      await refreshArticle()
     } catch (err) {
       pushToast({
         type: 'error',
@@ -100,14 +111,14 @@ export function ArticleEditor() {
 
   const checkin = async () => {
     try {
-      if (articleDirty) await save()
-      await getClient().checkin(
+      if (useConsoleStore.getState().articleDirty) await save()
+      const updated = await getClient().checkin(
         articleDetail.id,
-        articleDetail.lastModifiedDate,
+        currentLastModified(),
         language,
       )
+      applyArticleApiResult(updated)
       pushToast({ type: 'success', message: 'Article checked in' })
-      await refreshArticle()
     } catch (err) {
       pushToast({
         type: 'error',
@@ -118,14 +129,14 @@ export function ArticleEditor() {
 
   const publish = async () => {
     try {
-      if (articleDirty) await save()
-      await getClient().publish(
+      if (useConsoleStore.getState().articleDirty) await save()
+      const updated = await getClient().publish(
         articleDetail.id,
-        articleDetail.lastModifiedDate,
+        currentLastModified(),
         language,
       )
+      applyArticleApiResult(updated)
       pushToast({ type: 'success', message: 'Article published' })
-      await refreshArticle()
     } catch (err) {
       pushToast({
         type: 'error',
@@ -134,7 +145,9 @@ export function ArticleEditor() {
     }
   }
 
-  const contentKey = `${articleDetail.id}:${articleDetail.lastModifiedDate ?? ''}:${canEdit ? 'edit' : 'ro'}`
+  // Remount editor when article or lock mode changes — not on every lastModified bump
+  // (save/checkin would wipe the caret if LMD were in the key).
+  const contentKey = `${articleDetail.id}:${canEdit ? 'edit' : 'ro'}:${articleDetail.version ?? ''}`
 
   return (
     <div className={styles.panel}>
@@ -152,7 +165,11 @@ export function ArticleEditor() {
             Check-in
           </Button>
         ) : null}
-        <Button size="sm" disabled={!canEdit || !articleDirty} onClick={() => void save()}>
+        <Button
+          size="sm"
+          disabled={!canEdit || !articleDirty}
+          onClick={() => void save().catch(() => undefined)}
+        >
           Save
         </Button>
         <Button

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { resolveArticleLastModified } from '@/api/articleStamp'
 import { isCheckedOutByUser } from '@/api/mappers'
 import { Button } from '@/components/common/Button'
 import { EmptyState } from '@/components/common/EmptyState'
@@ -11,8 +12,13 @@ import styles from './PropertiesPanel.module.css'
 
 /** Form body for the article properties popup (no chrome — Modal supplies it). */
 export function PropertiesPanel() {
-  const { articleDetail, articleTypes, language, refreshArticle, draftTitle } =
-    useConsoleStore()
+  const {
+    articleDetail,
+    articleTypes,
+    language,
+    applyArticleApiResult,
+    draftTitle,
+  } = useConsoleStore()
   const getClient = useSessionStore((s) => s.getClient)
   const user = useSessionStore((s) => s.user)
   const pushToast = useToastStore((s) => s.push)
@@ -38,17 +44,21 @@ export function PropertiesPanel() {
 
   const saveMeta = async () => {
     try {
-      await getClient().editArticle({
+      const latest = useConsoleStore.getState().articleDetail
+      const updated = await getClient().editArticle({
         id: articleDetail.id,
         notes,
         includeInGenAI: includeGenAI,
         articleType,
-        lastModifiedDate: articleDetail.lastModifiedDate,
+        lastModifiedDate: resolveArticleLastModified(
+          articleDetail.id,
+          latest?.lastModifiedDate ?? articleDetail.lastModifiedDate,
+        ),
         language,
         name: draftTitle || articleDetail.name,
       })
+      applyArticleApiResult(updated)
       pushToast({ type: 'success', message: 'Properties saved' })
-      await refreshArticle()
     } catch (err) {
       pushToast({
         type: 'error',

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import clsx from 'clsx'
 import type { FolderNode } from '@/types'
 import { Button } from '@/components/common/Button'
 import { EmptyState } from '@/components/common/EmptyState'
@@ -8,6 +9,7 @@ import { ConfirmDialog, Modal } from '@/components/common/Modal'
 import { useConsoleStore } from '@/store/consoleStore'
 import { useSessionStore } from '@/store/sessionStore'
 import { useToastStore } from '@/store/toastStore'
+import { ARTICLE_DND_MIME, readArticleDragIds } from '@/utils/articleDnD'
 import styles from './FolderTree.module.css'
 
 function filterTree(nodes: FolderNode[], q: string): FolderNode[] {
@@ -29,9 +31,11 @@ function filterTree(nodes: FolderNode[], q: string): FolderNode[] {
 function FolderRow({
   node,
   depth,
+  onArticlesDropped,
 }: {
   node: FolderNode
   depth: number
+  onArticlesDropped: (articleIds: string[], folderId: string) => void
 }) {
   const {
     selectedFolderId,
@@ -39,6 +43,7 @@ function FolderRow({
     toggleFolderExpanded,
     selectFolder,
   } = useConsoleStore()
+  const [dropActive, setDropActive] = useState(false)
   const hasChildren =
     Boolean(node.children?.length) || Boolean(node.hasMoreChildren)
   const expanded = expandedFolderIds.has(node.id)
@@ -47,7 +52,7 @@ function FolderRow({
     <div>
       <button
         type="button"
-        className={styles.nodeBtn}
+        className={clsx(styles.nodeBtn, dropActive && styles.dropTarget)}
         style={{ paddingLeft: `${0.4 + depth * 0.85}rem` }}
         aria-selected={selectedFolderId === node.id}
         aria-expanded={hasChildren ? expanded : undefined}
@@ -59,6 +64,36 @@ function FolderRow({
           if (e.key === 'ArrowLeft' && hasChildren && expanded) {
             toggleFolderExpanded(node.id)
           }
+        }}
+        onDragEnter={(e) => {
+          if (
+            e.dataTransfer.types.includes(ARTICLE_DND_MIME) ||
+            e.dataTransfer.types.includes('text/plain')
+          ) {
+            e.preventDefault()
+            setDropActive(true)
+          }
+        }}
+        onDragOver={(e) => {
+          if (
+            e.dataTransfer.types.includes(ARTICLE_DND_MIME) ||
+            e.dataTransfer.types.includes('text/plain')
+          ) {
+            e.preventDefault()
+            e.dataTransfer.dropEffect = 'move'
+            setDropActive(true)
+          }
+        }}
+        onDragLeave={(e) => {
+          if (e.currentTarget.contains(e.relatedTarget as Node)) return
+          setDropActive(false)
+        }}
+        onDrop={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          setDropActive(false)
+          const ids = readArticleDragIds(e.dataTransfer)
+          if (ids.length) onArticlesDropped(ids, node.id)
         }}
       >
         <span
@@ -80,7 +115,12 @@ function FolderRow({
       </button>
       {hasChildren && expanded
         ? node.children!.map((child) => (
-            <FolderRow key={child.id} node={child} depth={depth + 1} />
+            <FolderRow
+              key={child.id}
+              node={child}
+              depth={depth + 1}
+              onArticlesDropped={onArticlesDropped}
+            />
           ))
         : null}
     </div>
@@ -103,9 +143,39 @@ export function FolderTree() {
     setFolderFilter,
     selectedFolderId,
     loadFolders,
+    loadArticles,
+    clearArticleSelection,
+    selectArticle,
   } = useConsoleStore()
   const getClient = useSessionStore((s) => s.getClient)
   const pushToast = useToastStore((s) => s.push)
+
+  const onArticlesDropped = async (articleIds: string[], folderId: string) => {
+    const currentFolder = useConsoleStore.getState().selectedFolderId
+    if (!articleIds.length) return
+    if (folderId === currentFolder) {
+      pushToast({ type: 'info', message: 'Articles are already in this folder' })
+      return
+    }
+    try {
+      await getClient().moveArticles(articleIds, folderId)
+      pushToast({
+        type: 'success',
+        message:
+          articleIds.length === 1
+            ? 'Article moved'
+            : `${articleIds.length} articles moved`,
+      })
+      clearArticleSelection()
+      await selectArticle(null)
+      if (currentFolder) await loadArticles(currentFolder)
+    } catch (err) {
+      pushToast({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Move failed',
+      })
+    }
+  }
 
   const [createOpen, setCreateOpen] = useState(false)
   const [renameOpen, setRenameOpen] = useState(false)
@@ -212,7 +282,16 @@ export function FolderTree() {
         ) : visible.length === 0 ? (
           <EmptyState title="No folders" body="Create a folder or adjust your filter." />
         ) : (
-          visible.map((node) => <FolderRow key={node.id} node={node} depth={0} />)
+          visible.map((node) => (
+            <FolderRow
+              key={node.id}
+              node={node}
+              depth={0}
+              onArticlesDropped={(ids, folderId) => {
+                void onArticlesDropped(ids, folderId)
+              }}
+            />
+          ))
         )}
       </div>
 

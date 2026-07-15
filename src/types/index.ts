@@ -73,7 +73,10 @@ export interface ArticleSummary {
   checkedOutBy?: string
   /** User id from lock.lockedBy / checkoutInfo when present. */
   checkedOutById?: string
+  /** Display version number (versions.version.versionNumber). */
   version?: string | number
+  /** Internal version id (versions.version.id) — required for concurrency targeting. */
+  versionId?: string
   includeInGenAI?: boolean
 }
 
@@ -97,6 +100,7 @@ export interface ArticleVersion {
   versionNumber?: string | number
   createdDate?: string
   createdBy?: string
+  lastModifiedDate?: string
   isPublished?: boolean
   label?: string
 }
