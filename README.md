@@ -26,6 +26,9 @@ Pushes to `main` run [`.github/workflows/deploy-s3.yml`](.github/workflows/deplo
 
 **Live URL:** https://aznadestzw4.egdemo.info/demo/mherman/author/index.html
 
+Subdirectory deploys use **hash routing** (`#/login`, `#/`) so CloudFront never
+requests non-existent S3 keys like `/login` or a bare trailing slash.
+
 ### One-time GitHub secrets
 
 In the repo: **Settings → Secrets and variables → Actions**, add:

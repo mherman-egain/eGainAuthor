@@ -33,7 +33,7 @@ env:
   VITE_BASE_PATH: /demo/mherman/author/
   DEFAULT_AWS_REGION: us-west-2
   DEFAULT_S3_BUCKET: egain-presales-demo-websites
-  DEFAULT_OAUTH_REDIRECT: https://aznadestzw4.egdemo.info/demo/mherman/author/oauth/callback
+  DEFAULT_OAUTH_REDIRECT: https://aznadestzw4.egdemo.info/demo/mherman/author/index.html
 
 jobs:
   deploy:

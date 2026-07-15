@@ -1,16 +1,26 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { BrowserRouter } from 'react-router-dom'
+import { BrowserRouter, HashRouter } from 'react-router-dom'
 import '@/styles/global.css'
 import App from './App.tsx'
 
-/** Vite BASE_URL ends with /; react-router basename must not. */
-const basename = import.meta.env.BASE_URL.replace(/\/$/, '') || undefined
+/**
+ * Subdirectory S3/CloudFront deploys (BASE_URL !== '/') use HashRouter so
+ * reloads never request /login or trailing-slash paths that S3 rejects with
+ * Access Denied. Local/dev keeps BrowserRouter + clean URLs.
+ */
+const base = import.meta.env.BASE_URL
+const useHashRouter = base !== '/'
+const basename = useHashRouter
+  ? undefined
+  : base.replace(/\/$/, '') || undefined
+
+const Router = useHashRouter ? HashRouter : BrowserRouter
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <BrowserRouter basename={basename}>
+    <Router basename={basename}>
       <App />
-    </BrowserRouter>
+    </Router>
   </StrictMode>,
 )

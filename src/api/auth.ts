@@ -32,7 +32,7 @@ export function getOAuthConfig(): OAuthConfig | null {
     tokenUrl,
     redirectUri:
       (import.meta.env.VITE_OAUTH_REDIRECT_URI as string) ||
-      `${window.location.origin}/oauth/callback`,
+      `${window.location.origin}${import.meta.env.BASE_URL}index.html`,
     scopes:
       (import.meta.env.VITE_OAUTH_SCOPES as string) ||
       'openid profile knowledge.authoring.manage',
