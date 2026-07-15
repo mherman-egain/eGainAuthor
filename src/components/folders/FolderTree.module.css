@@ -153,6 +153,10 @@
   color: var(--eg-ink);
 }
 
+.chevronEmpty {
+  pointer-events: none;
+}
+
 .name {
   overflow: hidden;
   text-overflow: ellipsis;

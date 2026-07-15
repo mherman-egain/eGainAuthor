@@ -140,7 +140,16 @@ export function mapFolder(raw: unknown): FolderNode {
   }
 
   if (childCount == null) {
-    childCount = Number(o.childCount ?? children?.length ?? 0) || undefined
+    childCount = Number(
+      o.childCount ??
+        o.folderCount ??
+        o.childFolderCount ??
+        o.numberOfFolders ??
+        children?.length ??
+        0,
+    )
+    // Keep 0 as a real leaf signal (don't coerce to undefined).
+    if (!Number.isFinite(childCount)) childCount = undefined
   }
 
   const loaded = children?.length ?? 0
@@ -154,7 +163,7 @@ export function mapFolder(raw: unknown): FolderNode {
     parentId: pickString(parent.id, o.parentId) ?? null,
     path: pickString(o.path, o.folderPath),
     articleCount: Number(o.articleCount ?? o.count ?? 0) || undefined,
-    childCount: total || undefined,
+    childCount: total,
     children,
     hasMoreChildren,
     childrenNextPage,

@@ -61,7 +61,9 @@ function FolderRow({
   } = useConsoleStore()
   const [dropActive, setDropActive] = useState(false)
   const hasChildren =
-    Boolean(node.children?.length) || Boolean(node.hasMoreChildren)
+    (node.childCount != null && node.childCount > 0) ||
+    Boolean(node.children?.length) ||
+    Boolean(node.hasMoreChildren)
   const expanded = expandedFolderIds.has(node.id)
   const isSelected = selectedFolderIds.has(node.id)
   const isOpen = selectedFolderId === node.id
@@ -143,7 +145,7 @@ function FolderRow({
         }}
       >
         <span
-          className={styles.chevron}
+          className={clsx(styles.chevron, !hasChildren && styles.chevronEmpty)}
           onClick={(e) => {
             if (!hasChildren) return
             e.stopPropagation()
@@ -152,7 +154,7 @@ function FolderRow({
           role={hasChildren ? 'button' : undefined}
           aria-hidden={!hasChildren}
         >
-          {hasChildren ? (expanded ? '▾' : '▸') : '·'}
+          {hasChildren ? (expanded ? '▾' : '▸') : null}
         </span>
         <input
           type="checkbox"

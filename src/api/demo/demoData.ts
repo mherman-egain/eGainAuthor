@@ -27,8 +27,20 @@ export function nextId(prefix = ''): string {
 /** Demo tree mirrors live console: Personal/Shared are hidden; roots are under Shared. */
 export const DEMO_SHARED_FOLDER_ID = 'f-shared'
 
+function markExpandable(nodes: FolderNode[]): FolderNode[] {
+  return nodes.map((n) => {
+    const kids = n.children?.length ?? 0
+    return {
+      ...n,
+      childCount: n.childCount ?? kids,
+      hasMoreChildren: kids > 0,
+      children: n.children ? markExpandable(n.children) : undefined,
+    }
+  })
+}
+
 export function seedFolders(): FolderNode[] {
-  return [
+  return markExpandable([
     {
       id: 'f-getting-started',
       name: 'Getting Started',
@@ -73,7 +85,7 @@ export function seedFolders(): FolderNode[] {
       path: '/Shared/Internal Drafts',
       articleCount: 2,
     },
-  ]
+  ])
 }
 
 export function seedArticles(): ArticleDetail[] {

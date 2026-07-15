@@ -261,13 +261,11 @@ export const useConsoleStore = create<ConsoleStore>((set, get) => ({
   ensureFolderChildren: async (id) => {
     const current = findFolderInTree(get().folders, id)
     if (!current) return
-    // Need a load when expandable and children not yet fetched
+    // Only fetch when we already know the folder has (or may still have) children.
     const needsLoad =
-      current.hasMoreChildren ||
+      Boolean(current.hasMoreChildren) ||
       current.childrenNextPage === 1 ||
-      (current.hasMoreChildren !== false &&
-        (current.children?.length ?? 0) === 0 &&
-        (current.childCount == null || current.childCount > 0))
+      ((current.childCount ?? 0) > 0 && (current.children?.length ?? 0) === 0)
     if (!needsLoad) return
     try {
       const client = useSessionStore.getState().getClient()

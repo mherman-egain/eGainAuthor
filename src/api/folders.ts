@@ -76,7 +76,9 @@ function readCollectionPagination(data: unknown): {
 
 /**
  * One page of **direct** children only.
- * Do not use `$level=-1` here — expanding the full Shared tree times out (504).
+ * `$level=1` includes each child's immediate descendants so we can tell which
+ * folders are expandable without guessing when childCount is missing.
+ * Do not use `$level=-1` — expanding the full Shared tree times out (504).
  */
 async function fetchChildrenPage(
   auth: RequestAuth,
@@ -86,7 +88,7 @@ async function fetchChildrenPage(
   // Avoid `$attribute=all` on large collections — it can 504 on busy tenants.
   const data = await apiRequest(
     auth,
-    `${wsPath('kb/folder')}?parent=${encodeURIComponent(parentId)}&$pagesize=${PAGE_SIZE}&$pagenum=${pagenum}`,
+    `${wsPath('kb/folder')}?parent=${encodeURIComponent(parentId)}&$level=1&$pagesize=${PAGE_SIZE}&$pagenum=${pagenum}`,
     { method: 'GET' },
   )
   const folders = unwrapList(data, ['folder', 'folders']).map(mapFolder)
@@ -129,7 +131,8 @@ async function fetchViaHref(auth: RequestAuth, href: string): Promise<PageResult
 
 /**
  * Mark folders so the UI can expand them and load children on demand.
- * Direct children from a one-level GET are not nested yet.
+ * Direct children from a one-level GET may arrive nested when `$level=1`;
+ * we use that only to decide expandability, then clear for lazy load.
  */
 function asExpandableNodes(
   folders: FolderNode[],
@@ -137,19 +140,18 @@ function asExpandableNodes(
 ): FolderNode[] {
   return sortFolderTree(
     folders.map((f) => {
-      const knownCount = f.childCount
       const nested = f.children?.length ?? 0
-      // Nested children shouldn't appear on a shallow parent= GET; strip if present
-      // so we always load one level at a time.
-      const hasKnownChildren = knownCount != null && knownCount > 0
+      const knownCount = f.childCount
+      const hasKids =
+        (knownCount != null && knownCount > 0) || nested > 0
       return {
         ...f,
         parentId: f.parentId ?? parentId,
+        // Strip nested nodes — children load when the user expands.
         children: [],
-        // If childCount is unknown, allow expand so we can probe; if 0, leaf.
-        hasMoreChildren: knownCount == null ? true : hasKnownChildren || nested > 0,
-        childrenNextPage: 1,
-        childCount: knownCount,
+        hasMoreChildren: hasKids,
+        childrenNextPage: hasKids ? 1 : undefined,
+        childCount: knownCount != null ? knownCount : nested,
       }
     }),
   )
