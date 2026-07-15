@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import clsx from 'clsx'
 import { Button } from '@/components/common/Button'
 import { EmptyState } from '@/components/common/EmptyState'
@@ -31,6 +31,7 @@ export function ArticleList({ onCreateArticle }: { onCreateArticle: () => void }
     toggleArticleSelected,
     selectArticleRange,
     clearArticleSelection,
+    selectAllArticles,
     getSelectedArticleIds,
     copySelectionToClipboard,
     articleClipboard,
@@ -38,6 +39,7 @@ export function ArticleList({ onCreateArticle }: { onCreateArticle: () => void }
     folders,
     loadArticles,
     language,
+    setDraggingArticleIds,
   } = useConsoleStore()
   const getClient = useSessionStore((s) => s.getClient)
   const pushToast = useToastStore((s) => s.push)
@@ -51,6 +53,29 @@ export function ArticleList({ onCreateArticle }: { onCreateArticle: () => void }
   const selectedIds = getSelectedArticleIds()
   const selectedCount = selectedIds.length
   const hasSelection = selectedCount > 0
+
+  // A single opened article also lives in selectedArticleIds, so only treat
+  // Escape as "clear selection" when there's an actual multi-selection —
+  // otherwise it would surprise-close whatever article is open in the editor.
+  const hasMultiSelection = selectedArticleIds.size > 1
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null
+      const tag = target?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target?.isContentEditable) {
+        return
+      }
+      if (document.querySelector('[role="dialog"]')) return
+      if (e.key === 'Escape' && hasMultiSelection) {
+        clearArticleSelection()
+      } else if (e.key === 'Delete' && hasSelection) {
+        e.preventDefault()
+        setDeleteOpen(true)
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [hasSelection, hasMultiSelection, clearArticleSelection])
 
   const statusClass = (status: string) => {
     if (status === 'live') return styles.live
@@ -166,8 +191,30 @@ export function ArticleList({ onCreateArticle }: { onCreateArticle: () => void }
       <div className={styles.toolbar}>
         <span className={styles.title}>
           Articles
-          {selectedCount > 1 ? (
-            <span className={styles.count}> · {selectedCount} selected</span>
+          {hasSelection ? (
+            <span className={styles.count}>
+              {' '}
+              · {selectedCount} selected ·{' '}
+              <button
+                type="button"
+                className={styles.linkBtn}
+                onClick={clearArticleSelection}
+              >
+                Clear
+              </button>
+            </span>
+          ) : articles.length > 0 ? (
+            <>
+              {' '}
+              ·{' '}
+              <button
+                type="button"
+                className={styles.linkBtn}
+                onClick={selectAllArticles}
+              >
+                Select all
+              </button>
+            </>
           ) : null}
         </span>
         <Button
@@ -193,45 +240,41 @@ export function ArticleList({ onCreateArticle }: { onCreateArticle: () => void }
         <Button
           variant="ghost"
           size="sm"
-          icon
-          title="Copy (to clipboard)"
+          title="Copy the selected article(s) to the clipboard"
           disabled={!hasSelection || busy}
           onClick={runCopyToClipboard}
         >
-          ⎘
+          ⎘ Copy
         </Button>
         <Button
           variant="ghost"
           size="sm"
-          icon
-          title="Paste into this folder"
+          title="Paste the clipboard's articles into this folder"
           disabled={!selectedFolderId || !articleClipboard?.articleIds.length || busy}
           onClick={() => void runPaste()}
         >
-          ⎖
+          ⎖ Paste
         </Button>
         <Button
           variant="ghost"
           size="sm"
-          icon
-          title="Move"
+          title="Move the selected article(s) to another folder"
           disabled={!hasSelection || busy}
           onClick={() => {
             setDestId(selectedFolderId || '')
             setMoveOpen(true)
           }}
         >
-          ↗
+          ↗ Move
         </Button>
         <Button
           variant="ghost"
           size="sm"
-          icon
-          title="Delete"
+          title="Delete the selected article(s)"
           disabled={!hasSelection || busy}
           onClick={() => setDeleteOpen(true)}
         >
-          ⌫
+          ⌫ Delete
         </Button>
       </div>
 
@@ -255,22 +298,20 @@ export function ArticleList({ onCreateArticle }: { onCreateArticle: () => void }
             const isSelected = selectedArticleIds.has(article.id)
             const isPrimary = selectedArticleId === article.id
             return (
-              <button
+              <div
                 key={article.id}
-                type="button"
-                className={clsx(styles.item, isSelected && styles.itemSelected)}
                 role="option"
                 aria-selected={isSelected}
+                tabIndex={0}
+                className={clsx(styles.item, isSelected && styles.itemSelected)}
                 draggable
                 onDragStart={(e) => {
                   const ids = idsForDrag(article.id)
                   setArticleDragData(e.dataTransfer, ids)
-                  e.dataTransfer.setDragImage(
-                    e.currentTarget,
-                    24,
-                    16,
-                  )
+                  e.dataTransfer.setDragImage(e.currentTarget, 24, 16)
+                  setDraggingArticleIds(ids)
                 }}
+                onDragEnd={() => setDraggingArticleIds([])}
                 onClick={(e) => {
                   if (e.shiftKey) {
                     e.preventDefault()
@@ -284,28 +325,45 @@ export function ArticleList({ onCreateArticle }: { onCreateArticle: () => void }
                   }
                   void selectArticleExclusive(article.id)
                 }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    void selectArticleExclusive(article.id)
+                  }
+                }}
               >
-                <p className={styles.itemName}>
-                  {isPrimary && selectedCount > 1 ? '▸ ' : null}
-                  {article.name}
-                </p>
-                <div className={styles.meta}>
-                  <span className={clsx(styles.pill, statusClass(article.status))}>
-                    {statusLabel(article.status)}
-                  </span>
-                  <span>ID {article.alternateId || article.id}</span>
-                  <span>{article.author || article.createdBy || '—'}</span>
-                  <span>{formatRelative(article.lastModifiedDate)}</span>
-                  {article.checkedOut ? <span>Checked out</span> : null}
+                <input
+                  type="checkbox"
+                  className={styles.checkbox}
+                  checked={isSelected}
+                  aria-label={`Select ${article.name}`}
+                  onClick={(e) => e.stopPropagation()}
+                  onChange={() => toggleArticleSelected(article.id)}
+                />
+                <div className={styles.itemBody}>
+                  <p className={styles.itemName}>
+                    {isPrimary && selectedCount > 1 ? '▸ ' : null}
+                    {article.name}
+                  </p>
+                  <div className={styles.meta}>
+                    <span className={clsx(styles.pill, statusClass(article.status))}>
+                      {statusLabel(article.status)}
+                    </span>
+                    <span>ID {article.alternateId || article.id}</span>
+                    <span>{article.author || article.createdBy || '—'}</span>
+                    <span>{formatRelative(article.lastModifiedDate)}</span>
+                    {article.checkedOut ? <span>Checked out</span> : null}
+                  </div>
                 </div>
-              </button>
+              </div>
             )
           })
         )}
       </div>
 
       <p className={styles.hint}>
-        Tip: ⌘/Ctrl+click to multi-select, Shift+click for a range. Drag onto a folder to move.
+        Tip: check boxes to multi-select, Shift+click for a range, or drag onto a
+        folder to move. Esc clears selection, Delete removes it.
       </p>
 
       <Modal

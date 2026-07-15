@@ -16,6 +16,34 @@
   background: var(--eg-surface);
 }
 
+.statusChip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.55rem;
+  margin-right: 0.35rem;
+  border-radius: var(--eg-radius-pill);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.chipEditing {
+  background: var(--eg-success-bg);
+  color: var(--eg-success);
+}
+
+.chipLocked {
+  background: var(--eg-warning-bg);
+  color: var(--eg-warning);
+}
+
+.chipReadonly {
+  background: var(--eg-surface-3);
+  color: var(--eg-muted);
+}
+
 .titleRow {
   padding: 1.5rem 2.5rem 0.35rem;
   max-width: 56rem;

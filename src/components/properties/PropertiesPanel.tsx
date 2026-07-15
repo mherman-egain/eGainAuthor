@@ -72,8 +72,8 @@ export function PropertiesPanel() {
       {!canEdit ? (
         <p className={styles.value} style={{ marginTop: 0 }}>
           {articleDetail.checkedOut
-            ? `Checked out by ${articleDetail.checkedOutBy || 'another user'}. Checkout the article yourself to edit properties.`
-            : 'Checkout the article to edit properties.'}
+            ? `Read-only — checked out by ${articleDetail.checkedOutBy || 'another user'}. Only that user can edit until they check in.`
+            : 'Checkout the article (yourself) to edit properties.'}
         </p>
       ) : null}
       <section>

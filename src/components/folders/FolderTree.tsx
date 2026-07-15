@@ -146,6 +146,7 @@ export function FolderTree() {
     loadArticles,
     clearArticleSelection,
     selectArticle,
+    draggingArticleIds,
   } = useConsoleStore()
   const getClient = useSessionStore((s) => s.getClient)
   const pushToast = useToastStore((s) => s.push)
@@ -276,7 +277,20 @@ export function FolderTree() {
           aria-label="Filter folders"
         />
       </div>
-      <div className={`${styles.tree} app-scroll`} role="tree">
+      {draggingArticleIds.length > 0 ? (
+        <p className={styles.dropHint}>
+          Drop on a folder below to move{' '}
+          {draggingArticleIds.length === 1 ? 'this article' : `these ${draggingArticleIds.length} articles`}
+        </p>
+      ) : null}
+      <div
+        className={clsx(
+          styles.tree,
+          'app-scroll',
+          draggingArticleIds.length > 0 && styles.treeDragging,
+        )}
+        role="tree"
+      >
         {foldersLoading ? (
           <SkeletonList rows={8} />
         ) : visible.length === 0 ? (

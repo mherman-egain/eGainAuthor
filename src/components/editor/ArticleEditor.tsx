@@ -1,3 +1,4 @@
+import clsx from 'clsx'
 import { Button } from '@/components/common/Button'
 import { EmptyState } from '@/components/common/EmptyState'
 import { SkeletonBlock } from '@/components/common/Skeleton'
@@ -15,6 +16,8 @@ export function ArticleEditor() {
     selectedArticleId,
     articleDetail,
     articleLoading,
+    articleLoadError,
+    selectArticle,
     draftTitle,
     draftContent,
     articleDirty,
@@ -47,12 +50,39 @@ export function ArticleEditor() {
     )
   }
 
-  if (articleLoading || !articleDetail) {
+  if (articleLoading) {
     return (
       <div className={styles.panel} style={{ padding: '1rem' }}>
         <SkeletonBlock height={48} />
         <div style={{ height: 12 }} />
         <SkeletonBlock height={320} />
+      </div>
+    )
+  }
+
+  if (!articleDetail) {
+    return (
+      <div className={styles.panel}>
+        <div className={styles.empty}>
+          <EmptyState
+            title="Couldn't load this article"
+            body={articleLoadError || 'Something went wrong while loading this article.'}
+            action={
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => void selectArticle(selectedArticleId)}
+                >
+                  Try again
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => void selectArticle(null)}>
+                  Back to list
+                </Button>
+              </div>
+            }
+          />
+        </div>
       </div>
     )
   }
@@ -149,9 +179,21 @@ export function ArticleEditor() {
   // (save/checkin would wipe the caret if LMD were in the key).
   const contentKey = `${articleDetail.id}:${canEdit ? 'edit' : 'ro'}:${articleDetail.version ?? ''}`
 
+  const statusChip = canEdit
+    ? { label: 'Editing', cls: styles.chipEditing }
+    : isCheckedOut
+      ? {
+          label: `Locked by ${articleDetail.checkedOutBy || 'another user'}`,
+          cls: styles.chipLocked,
+        }
+      : { label: 'Read-only', cls: styles.chipReadonly }
+
   return (
     <div className={styles.panel}>
       <div className={styles.toolbar}>
+        <span className={clsx(styles.statusChip, statusChip.cls)}>
+          {statusChip.label}
+        </span>
         <Button
           variant="primary"
           size="sm"
@@ -201,16 +243,6 @@ export function ArticleEditor() {
         <span>ID {articleDetail.alternateId || articleDetail.id}</span>
         <span>·</span>
         <span>Updated {formatDate(articleDetail.lastModifiedDate)}</span>
-        {isCheckedOut ? (
-          <>
-            <span>·</span>
-            <span>
-              {canEdit
-                ? 'Checked out by you'
-                : `Checked out by ${articleDetail.checkedOutBy || 'another user'}`}
-            </span>
-          </>
-        ) : null}
       </div>
 
       <div className={styles.editorShell}>

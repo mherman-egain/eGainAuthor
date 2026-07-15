@@ -247,34 +247,41 @@ function pickLatestVersion(o: Record<string, unknown>): Record<string, unknown> 
   return pickWorkingVersion(o)
 }
 
-/** True when this article is locked for edit by the given session user. */
+/**
+ * Editable only when the article is checked out **and** the lock holder is
+ * the current user. Checked out by anyone else (or unknown) → read-only.
+ */
 export function isCheckedOutByUser(
   article: Pick<ArticleSummary, 'checkedOut' | 'checkedOutBy' | 'checkedOutById'>,
   user?: UserProfile | null,
 ): boolean {
   if (!article.checkedOut || !user) return false
-  const ids = [user.id, user.userName]
+
+  const lockId =
+    article.checkedOutById != null && String(article.checkedOutById).trim()
+      ? String(article.checkedOutById).trim().toLowerCase()
+      : ''
+  const myIds = [user.id, user.userName]
     .filter(Boolean)
-    .map((s) => String(s).toLowerCase())
-  const names = [
+    .map((s) => String(s).trim().toLowerCase())
+  if (lockId && myIds.includes(lockId)) return true
+
+  const lockName = article.checkedOutBy?.trim().toLowerCase()
+  if (!lockName) {
+    // Checked out but owner unknown — never assume it is the current user.
+    return false
+  }
+
+  const myNames = [
     user.screenName,
     user.userName,
     [user.firstName, user.lastName].filter(Boolean).join(' '),
   ]
     .filter(Boolean)
-    .map((s) => String(s).toLowerCase())
+    .map((s) => String(s).trim().toLowerCase())
 
-  const byId = article.checkedOutById?.toLowerCase()
-  if (byId && ids.includes(byId)) return true
-
-  const byName = article.checkedOutBy?.toLowerCase()
-  if (byName && names.some((n) => n === byName || byName.includes(n) || n.includes(byName))) {
-    return true
-  }
-
-  // Locked, but checkout user omitted from payload — still treat as editable.
-  if (!article.checkedOutBy && !article.checkedOutById) return true
-  return false
+  // Exact name match only (no loose substring matching).
+  return myNames.some((n) => n === lockName)
 }
 
 export function mapArticleSummary(raw: unknown, folderIdFallback?: string): ArticleSummary {
@@ -340,9 +347,15 @@ export function mapArticleSummary(raw: unknown, folderIdFallback?: string): Arti
       checkoutUser.name,
       checkoutUser.screenName,
       checkoutUser.userName,
+      checkoutUser.loginId,
       typeof o.checkedOutBy === 'string' ? o.checkedOutBy : undefined,
     ),
-    checkedOutById: pickString(checkoutUser.id),
+    checkedOutById: pickString(
+      checkoutUser.id,
+      checkoutUser.userId,
+      checkoutUser.loginId,
+      checkoutUser.userName,
+    ),
     version: pickString(
       version.versionNumber,
       version.number,

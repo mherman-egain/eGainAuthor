@@ -32,6 +32,25 @@
   padding: 0 0.5rem 0.75rem;
 }
 
+.treeDragging {
+  outline: 1px dashed var(--eg-brand-mid);
+  outline-offset: -1px;
+  border-radius: var(--eg-radius);
+  background: var(--eg-brand-softer);
+}
+
+.dropHint {
+  margin: 0 0.75rem 0.6rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px dashed var(--eg-brand-mid);
+  border-radius: var(--eg-radius);
+  background: var(--eg-brand-softer);
+  color: var(--eg-brand-dark);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-align: center;
+}
+
 .nodeBtn {
   width: 100%;
   display: flex;

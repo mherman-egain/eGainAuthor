@@ -36,8 +36,12 @@ type ConsoleStore = {
   articleSelectionAnchorId: string | null
   /** In-memory clipboard for copy/paste across folders. */
   articleClipboard: ArticleClipboard | null
+  /** Article ids currently being dragged (for folder drop-target affordance). */
+  draggingArticleIds: string[]
   articleDetail: ArticleDetail | null
   articleLoading: boolean
+  /** Set when the selected article failed to load, so the editor can show a retry state instead of loading forever. */
+  articleLoadError: string | null
   articleDirty: boolean
   draftTitle: string
   draftContent: string
@@ -63,10 +67,13 @@ type ConsoleStore = {
   toggleArticleSelected: (id: string) => void
   selectArticleRange: (toId: string) => void
   clearArticleSelection: () => void
+  /** Select every article currently loaded in the folder. */
+  selectAllArticles: () => void
   /** IDs for bulk actions (multi-select, else primary). */
   getSelectedArticleIds: () => string[]
   copySelectionToClipboard: () => void
   clearArticleClipboard: () => void
+  setDraggingArticleIds: (ids: string[]) => void
   setDraftTitle: (title: string) => void
   setDraftContent: (html: string) => void
   markClean: () => void
@@ -100,8 +107,10 @@ export const useConsoleStore = create<ConsoleStore>((set, get) => ({
   selectedArticleIds: new Set(),
   articleSelectionAnchorId: null,
   articleClipboard: null,
+  draggingArticleIds: [],
   articleDetail: null,
   articleLoading: false,
+  articleLoadError: null,
   articleDirty: false,
   draftTitle: '',
   draftContent: '',
@@ -202,6 +211,7 @@ export const useConsoleStore = create<ConsoleStore>((set, get) => ({
         selectedArticleIds: new Set(),
         articleSelectionAnchorId: null,
         articleDetail: null,
+        articleLoadError: null,
         draftTitle: '',
         draftContent: '',
         articleDirty: false,
@@ -213,6 +223,7 @@ export const useConsoleStore = create<ConsoleStore>((set, get) => ({
       selectedArticleIds: new Set([id]),
       articleSelectionAnchorId: id,
       articleLoading: true,
+      articleLoadError: null,
       mobilePanel: 'editor',
     })
     try {
@@ -221,12 +232,16 @@ export const useConsoleStore = create<ConsoleStore>((set, get) => ({
       rememberArticleLastModified(article.id, article.lastModifiedDate)
       set({
         articleDetail: article,
+        articleLoadError: null,
         draftTitle: article.name,
         draftContent: article.content,
         articleDirty: false,
       })
     } catch (err) {
       toastError(err, 'Failed to load article')
+      set({
+        articleLoadError: err instanceof Error ? err.message : 'Failed to load article',
+      })
     } finally {
       set({ articleLoading: false })
     }
@@ -279,6 +294,16 @@ export const useConsoleStore = create<ConsoleStore>((set, get) => ({
       articleSelectionAnchorId: null,
     }),
 
+  selectAllArticles: () => {
+    const { articles } = get()
+    if (!articles.length) return
+    set({
+      selectedArticleIds: new Set(articles.map((a) => a.id)),
+      selectedArticleId: articles[articles.length - 1]!.id,
+      articleSelectionAnchorId: articles[0]!.id,
+    })
+  },
+
   getSelectedArticleIds: () => {
     const { selectedArticleIds, selectedArticleId } = get()
     if (selectedArticleIds.size > 0) return [...selectedArticleIds]
@@ -292,6 +317,8 @@ export const useConsoleStore = create<ConsoleStore>((set, get) => ({
   },
 
   clearArticleClipboard: () => set({ articleClipboard: null }),
+
+  setDraggingArticleIds: (ids) => set({ draggingArticleIds: ids }),
 
   setDraftTitle: (title) =>
     set({ draftTitle: title, articleDirty: true }),
@@ -415,7 +442,9 @@ export const useConsoleStore = create<ConsoleStore>((set, get) => ({
       selectedArticleIds: new Set(),
       articleSelectionAnchorId: null,
       articleClipboard: null,
+      draggingArticleIds: [],
       articleDetail: null,
+      articleLoadError: null,
       draftTitle: '',
       draftContent: '',
       articleDirty: false,

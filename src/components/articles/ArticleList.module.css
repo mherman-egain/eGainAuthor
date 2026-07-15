@@ -9,7 +9,8 @@
 .toolbar {
   display: flex;
   align-items: center;
-  gap: 0.2rem;
+  flex-wrap: wrap;
+  gap: 0.25rem;
   padding: 0.75rem 0.75rem 0.55rem;
 }
 
@@ -19,11 +20,27 @@
   color: var(--eg-ink);
   margin-right: auto;
   padding-left: 0.25rem;
+  white-space: nowrap;
 }
 
 .count {
   font-weight: 600;
   color: var(--eg-brand);
+}
+
+.linkBtn {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: var(--eg-brand);
+  font-weight: 700;
+  font-size: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.linkBtn:hover {
+  color: var(--eg-brand-dark);
 }
 
 .list {
@@ -34,6 +51,9 @@
 
 .item {
   width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
   text-align: left;
   border: 0;
   border-radius: var(--eg-radius);
@@ -47,6 +67,11 @@
   background: var(--eg-surface-3);
 }
 
+.item:focus-visible {
+  outline: 2px solid var(--eg-brand);
+  outline-offset: -2px;
+}
+
 .item[aria-selected='true'],
 .itemSelected {
   background: var(--eg-brand-soft);
@@ -54,6 +79,27 @@
 
 .item:active {
   cursor: grabbing;
+}
+
+.checkbox {
+  flex: 0 0 auto;
+  margin: 0.2rem 0 0;
+  width: 15px;
+  height: 15px;
+  accent-color: var(--eg-brand);
+  cursor: pointer;
+  opacity: 0.45;
+}
+
+.item:hover .checkbox,
+.item:focus-within .checkbox,
+.item[aria-selected='true'] .checkbox {
+  opacity: 1;
+}
+
+.itemBody {
+  flex: 1;
+  min-width: 0;
 }
 
 .itemName {
