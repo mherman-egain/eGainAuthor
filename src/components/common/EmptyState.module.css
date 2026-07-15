@@ -1,0 +1,35 @@
+.wrap {
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 2rem 1.25rem;
+  color: var(--eg-muted);
+  gap: 0.35rem;
+  min-height: 160px;
+}
+
+.icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: var(--eg-magenta-soft);
+  color: var(--eg-magenta);
+  font-weight: 700;
+  margin-bottom: 0.35rem;
+}
+
+.title {
+  margin: 0;
+  color: var(--eg-ink-secondary);
+  font-size: 0.95rem;
+  font-weight: 650;
+}
+
+.body {
+  margin: 0;
+  font-size: 0.85rem;
+  max-width: 260px;
+  line-height: 1.45;
+}

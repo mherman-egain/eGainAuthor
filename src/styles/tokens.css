@@ -1,0 +1,50 @@
+:root {
+  /* eGain brand (from egain.com: rgb(185, 29, 143)) */
+  --eg-brand: #b91d8f;
+  --eg-brand-dark: #961673;
+  --eg-brand-mid: #d43eaa;
+  --eg-brand-soft: #f9e8f4;
+  --eg-brand-softer: #fdf5fa;
+
+  /* Legacy aliases used across components */
+  --eg-magenta: var(--eg-brand);
+  --eg-magenta-dark: var(--eg-brand-dark);
+  --eg-magenta-soft: var(--eg-brand-soft);
+  --eg-magenta-mid: var(--eg-brand-mid);
+
+  /* Confluence-like neutrals */
+  --eg-ink: #172b4d;
+  --eg-ink-secondary: #44546f;
+  --eg-muted: #626f86;
+  --eg-border: #dfe1e6;
+  --eg-border-strong: #c1c7d0;
+  --eg-surface: #ffffff;
+  --eg-surface-2: #f7f8f9;
+  --eg-surface-3: #ebecf0;
+  --eg-sidebar: #f7f8f9;
+
+  --eg-success: #216e4e;
+  --eg-success-bg: #dcfff1;
+  --eg-warning: #a54800;
+  --eg-warning-bg: #fff7d6;
+  --eg-danger: #ae2e24;
+  --eg-danger-bg: #ffeceb;
+  --eg-info: #0c66e4;
+  --eg-info-bg: #e9f2ff;
+
+  --eg-shadow: 0 1px 1px rgba(9, 30, 66, 0.13), 0 0 1px rgba(9, 30, 66, 0.13);
+  --eg-shadow-lg: 0 8px 12px rgba(9, 30, 66, 0.15), 0 0 1px rgba(9, 30, 66, 0.31);
+  --eg-radius: 3px;
+  --eg-radius-sm: 3px;
+  --eg-radius-pill: 999px;
+
+  --eg-header-h: 56px;
+  --eg-nav-w: 0px;
+  --eg-folder-w: 280px;
+  --eg-article-w: 300px;
+  --eg-props-w: 320px;
+
+  --eg-font: 'Open Sans', 'Segoe UI', sans-serif;
+  --eg-font-display: 'Open Sans', 'Segoe UI', sans-serif;
+  --eg-focus: 0 0 0 2px var(--eg-surface), 0 0 0 4px var(--eg-brand);
+}

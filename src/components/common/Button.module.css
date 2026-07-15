@@ -1,0 +1,70 @@
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border: 1px solid transparent;
+  border-radius: var(--eg-radius);
+  padding: 0.4rem 0.75rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: background 80ms ease, border-color 80ms ease, color 80ms ease,
+    box-shadow 80ms ease;
+  white-space: nowrap;
+  background: var(--eg-surface);
+  color: var(--eg-ink-secondary);
+  border-color: var(--eg-border);
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--eg-surface-2);
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.primary {
+  background: var(--eg-brand);
+  border-color: var(--eg-brand);
+  color: #fff;
+}
+
+.primary:hover:not(:disabled) {
+  background: var(--eg-brand-dark);
+  border-color: var(--eg-brand-dark);
+}
+
+.ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--eg-ink-secondary);
+}
+
+.ghost:hover:not(:disabled) {
+  background: var(--eg-surface-3);
+  color: var(--eg-ink);
+}
+
+.danger {
+  background: var(--eg-danger);
+  border-color: var(--eg-danger);
+  color: #fff;
+}
+
+.danger:hover:not(:disabled) {
+  filter: brightness(0.95);
+}
+
+.sm {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.8125rem;
+}
+
+.icon {
+  padding: 0.3rem;
+  min-width: 2rem;
+  min-height: 2rem;
+}

@@ -1,0 +1,26 @@
+.wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.icon {
+  position: absolute;
+  left: 0.65rem;
+  color: var(--eg-muted);
+  font-size: 0.85rem;
+  pointer-events: none;
+}
+
+.input {
+  width: 100%;
+  border: 1px solid var(--eg-border);
+  border-radius: var(--eg-radius-sm);
+  background: var(--eg-surface);
+  padding: 0.45rem 0.7rem 0.45rem 1.9rem;
+  font-size: 0.875rem;
+}
+
+.input:focus {
+  border-color: var(--eg-brand);
+}

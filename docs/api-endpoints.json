@@ -1,0 +1,2574 @@
+{
+  "source": {
+    "title": "eGain REST API | API Reference Guide (Knowledge Authoring & Interaction)",
+    "release": "21.2",
+    "modified": "2021-05-31",
+    "indexUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/d3/dc8/web-service-index.html",
+    "authGuideUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/d6/d2a/understanding-authentication.html",
+    "commonQueryParamsUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/da/d41/common-query-params.html",
+    "introUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/d1/dfb/intro.html"
+  },
+  "baseUrl": {
+    "pattern": "https://{HOST}/{CONTEXT_ROOT}/ws/{version}/...",
+    "typicalContextRoot": "system",
+    "example": "https://{HOST}/system/ws/v20/kb/article",
+    "versions": {
+      "authoringAndMostApis": "v20",
+      "oauthClientAndSsoBearer": "v19",
+      "samlPostController": "/SAML/SSO/POST.controller"
+    }
+  },
+  "authentication": {
+    "primaryMechanism": "session",
+    "sessionHeader": "X-egain-session",
+    "loginCreatesSession": true,
+    "csrfForConsoleEmbedded": {
+      "cookie": "X-egain-session",
+      "header": "X-egain-csrf",
+      "note": "When calling APIs from eGain application consoles, send session as cookie and CSRF token as header."
+    },
+    "oauthClientApp": {
+      "tokenPath": "/ws/v19/clientapplications/authentication/oauth2/token",
+      "revokePath": "/ws/v19/clientapplications/authentication/oauth2/revoke",
+      "grantType": "client_credentials"
+    },
+    "maxConcurrentUserSessions": 5,
+    "maxConcurrentClientAppSessions": 10,
+    "forceLoginQuery": "forceLogin=yes"
+  },
+  "commonHeaders": {
+    "Accept": "application/json (recommended for SPA) or application/xml (default)",
+    "Content-Type": "application/json or application/xml; OAuth forms use application/x-www-form-urlencoded",
+    "X-egain-session": "required on nearly all APIs after login",
+    "Accept-Language": "optional locale for errors/resources",
+    "Accept-Encoding": "gzip supported for response compression"
+  },
+  "commonQueryParameters": [
+    {
+      "name": "$pagenum",
+      "default": "1",
+      "allowed": "positive integer"
+    },
+    {
+      "name": "$pagesize",
+      "default": "25",
+      "allowed": "1-75"
+    },
+    {
+      "name": "$rangestart",
+      "default": "1",
+      "allowed": "positive integer"
+    },
+    {
+      "name": "$rangesize",
+      "default": "25",
+      "allowed": "1-75"
+    },
+    {
+      "name": "$sort",
+      "default": null,
+      "note": "single attribute only"
+    },
+    {
+      "name": "$order",
+      "default": "asc",
+      "allowed": [
+        "asc",
+        "desc"
+      ]
+    },
+    {
+      "name": "$lang",
+      "default": "user primary language",
+      "note": "authoring resource language"
+    },
+    {
+      "name": "$level",
+      "default": "0",
+      "allowed": [
+        "0",
+        "positive int",
+        "-1 full hierarchy"
+      ]
+    },
+    {
+      "name": "$count",
+      "allowed": [
+        "yes"
+      ],
+      "note": "returns count + first-page link only"
+    },
+    {
+      "name": "$attribute",
+      "allowed": [
+        "all",
+        "comma-separated attrs",
+        "blank for defaults"
+      ]
+    }
+  ],
+  "paginationRules": {
+    "doNotMix": [
+      "$pagenum/$pagesize with $rangestart/$rangesize"
+    ],
+    "responseShape": {
+      "paginationInfo": {
+        "count": "int",
+        "pagenum": "int",
+        "pagesize": "int"
+      },
+      "count": "int",
+      "link": {
+        "rel": "self"
+      }
+    }
+  },
+  "spaNotes": [
+    "CORS must be whitelisted in eGain Administration Console for browser SPA origins.",
+    "Standalone SPA should prefer a backend BFF/proxy: keep credentials server-side, forward X-egain-session.",
+    "Store X-egain-session from login response header; attach on every subsequent request.",
+    "On 401, re-login. Knowledge Authoring error shape often {\"message\":\"...Invalid session ID.\"}.",
+    "Use Accept: application/json throughout.",
+    "Dates are ISO 8601.",
+    "Optimistic concurrency: checkin/edit often require versions.version.lastModified matching server.",
+    "Typical lifecycle: create -> checkout (if needed) -> edit/checkin -> changestage -> publish.",
+    "Shared new articles created checked-out; personal articles created published.",
+    "GET supports alternateId; mutating calls with alternateId fail with 400.",
+    "Department commonly appears as nested {id,name}; folder listing uses ?department={id}.",
+    "Language via body language.id and/or query $lang / Accept-Language."
+  ],
+  "endpointCount": 60,
+  "endpoints": [
+    {
+      "id": "login",
+      "category": "auth",
+      "name": "Login API",
+      "method": "POST",
+      "path": "/ws/v20/authentication/user/login",
+      "description": "Authenticates user credentials and creates a session. Returns X-egain-session header; no success body.",
+      "auth": "none",
+      "headers": {
+        "Content-Type": "application/xml or application/json",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [
+        {
+          "name": "forceLogin",
+          "required": false,
+          "values": [
+            "yes"
+          ],
+          "description": "Terminate oldest session if user already has 5 concurrent sessions"
+        }
+      ],
+      "requestBody": {
+        "required": [
+          "userName",
+          "password"
+        ],
+        "example": {
+          "userName": "kbagent1",
+          "password": "egain123"
+        }
+      },
+      "response": {
+        "successStatus": 204,
+        "headers": [
+          "X-egain-session"
+        ],
+        "body": null,
+        "errorShape": {
+          "message": "string"
+        }
+      },
+      "notes": [
+        "Max 5 concurrent user WS sessions",
+        "Must be first call before most other APIs"
+      ],
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/d0/d54/class_login_page.html"
+    },
+    {
+      "id": "logout",
+      "category": "auth",
+      "name": "Logout API",
+      "method": "DELETE",
+      "path": "/ws/v20/authentication/user/logout",
+      "description": "Terminates the session identified by X-egain-session.",
+      "auth": "session",
+      "headers": {
+        "X-egain-session": "required",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [],
+      "requestBody": null,
+      "response": {
+        "successStatus": 204,
+        "body": null,
+        "errorShape": {
+          "message": "string"
+        }
+      },
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/d1/d39/class_logout_page.html"
+    },
+    {
+      "id": "sso-saml-user",
+      "category": "auth",
+      "name": "Single Sign-On using SAML",
+      "method": "POST",
+      "path": "/SAML/SSO/POST.controller",
+      "description": "eGain user SSO login via SAML2 POST binding.",
+      "auth": "none",
+      "headers": {},
+      "queryParameters": [
+        {
+          "name": "SAMLResponse",
+          "required": true,
+          "description": "Base64-encoded SAML response (form or query)"
+        }
+      ],
+      "requestBody": {
+        "required": [
+          "SAMLResponse"
+        ],
+        "contentType": "form"
+      },
+      "response": {
+        "headers": [
+          "X-egain-session"
+        ],
+        "body": "session established on success"
+      },
+      "notes": [
+        "Requires Agent SSO configuration in Admin Console"
+      ],
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/db/d03/class_user_s_s_o_login_page.html"
+    },
+    {
+      "id": "sso-saml-bearer",
+      "category": "auth",
+      "name": "SSO using SAML bearer token",
+      "method": "POST",
+      "path": "/ws/v19/authentication/user/sso/oauth2/token",
+      "description": "User SSO login with OAuth2 SAML2 bearer grant. Returns access_token (= session) and X-egain-session.",
+      "auth": "none",
+      "headers": {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [
+        {
+          "name": "forceLogin",
+          "required": false,
+          "values": [
+            "yes"
+          ]
+        },
+        {
+          "name": "application_type",
+          "required": true,
+          "values": [
+            "API"
+          ],
+          "description": "Required via query or SAML attribute"
+        }
+      ],
+      "requestBody": {
+        "required": [
+          "grant_type",
+          "assertion"
+        ],
+        "contentType": "application/x-www-form-urlencoded",
+        "shape": {
+          "grant_type": "urn:ietf:params:oauth:grant-type:saml2-bearer",
+          "assertion": "Base64 SAML assertion"
+        }
+      },
+      "response": {
+        "successStatus": 200,
+        "headers": [
+          "X-egain-session"
+        ],
+        "body": {
+          "access_token": "session id",
+          "token_type": "Bearer"
+        },
+        "errorShape": {
+          "error": "invalid_request|unsupported_grant_type|invalid_grant|access_denied|server_error",
+          "error_description": "string"
+        }
+      },
+      "notes": [
+        "Supports auto-provisioning if Admin setting enabled"
+      ],
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/d2/d27/class_user_s_s_o_bearer_token_login_page.html"
+    },
+    {
+      "id": "oauth-client-authenticate",
+      "category": "auth",
+      "name": "Authenticate client application",
+      "method": "POST",
+      "path": "/ws/v19/clientapplications/authentication/oauth2/token",
+      "description": "OAuth2 client_credentials grant for client applications. Returns access token with expires_in.",
+      "auth": "basic_client",
+      "headers": {
+        "Authorization": "Basic base64(client_key:client_secret)",
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Accept": "application/xml or application/json"
+      },
+      "queryParameters": [
+        {
+          "name": "forceLogin",
+          "required": false,
+          "values": [
+            "yes"
+          ],
+          "description": "Max 10 concurrent client sessions"
+        }
+      ],
+      "requestBody": {
+        "required": [
+          "grant_type"
+        ],
+        "shape": {
+          "grant_type": "client_credentials"
+        },
+        "contentType": "application/x-www-form-urlencoded"
+      },
+      "response": {
+        "successStatus": 200,
+        "body": "Oauth Login Response Schema (access_token, token_type, expires_in)"
+      },
+      "notes": [
+        "Primarily for client-application APIs (e.g. async messaging), not default authoring user session flow"
+      ],
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/d7/d75/classclientapplications_1_1pages_1_1asyncmessaging_1_1_authenticate_page.html"
+    },
+    {
+      "id": "oauth-client-revoke",
+      "category": "auth",
+      "name": "Revoke access token of client application",
+      "method": "POST",
+      "path": "/ws/v19/clientapplications/authentication/oauth2/revoke",
+      "description": "Revokes an existing client application access token.",
+      "auth": "bearer",
+      "headers": {
+        "Authorization": "Bearer <access_token>",
+        "Content-Type": "application/xml|application/json|multipart/form-data",
+        "Accept": "application/xml or application/json"
+      },
+      "queryParameters": [],
+      "requestBody": null,
+      "response": {
+        "successStatus": 204,
+        "body": null
+      },
+      "notes": [
+        "Request body must be empty",
+        "No query parameters allowed"
+      ],
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/dc/d54/classclientapplications_1_1pages_1_1asyncmessaging_1_1_revoke_access_token_page.html"
+    },
+    {
+      "id": "composite",
+      "category": "composite",
+      "name": "Composite Request API",
+      "method": "POST",
+      "path": "/ws/v20/composite",
+      "description": "Executes one or more REST API calls in a single request.",
+      "auth": "optional_session",
+      "headers": {
+        "X-egain-session": "required",
+        "Content-Type": "application/xml or application/json (mutating methods)",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [],
+      "requestBody": {
+        "required": [
+          "request[].method",
+          "request[].url"
+        ],
+        "optional": [
+          "request[].requestBodyText",
+          "request[].formParam"
+        ],
+        "example": {
+          "request": [
+            {
+              "method": "GET",
+              "url": "http://server1/system/ws/v20/kb/topic/500000000001000"
+            },
+            {
+              "method": "POST",
+              "url": "http://server1/system/ws/v20/kb/article",
+              "requestBodyText": "{\"folder\":{\"id\":\"500000000002073\"},\"language\":{\"id\":\"1\"},\"versions\":{\"version\":[{\"name\":\"POST_ARTICLE1\"}]}}"
+            }
+          ]
+        }
+      },
+      "response": {
+        "successStatus": 200,
+        "body": {
+          "resultObject": [
+            {
+              "any": "nested response",
+              "httpStatus": "string"
+            }
+          ]
+        }
+      },
+      "notes": [
+        "Nested URLs are absolute including host/context",
+        "All nested auth uses same X-egain-session"
+      ],
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/d1/de5/class_composite_request_page.html"
+    },
+    {
+      "id": "create-article",
+      "category": "articles",
+      "name": "Article Creation API",
+      "method": "POST",
+      "path": "/ws/v20/kb/article",
+      "description": "Creates article in personal or shared folder. Shared articles start checked-out; personal start published.",
+      "auth": "session",
+      "headers": {
+        "X-egain-session": "required",
+        "Content-Type": "application/xml or application/json (mutating methods)",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [
+        {
+          "name": "$attribute",
+          "required": false
+        }
+      ],
+      "requestBody": {
+        "required": [
+          "name",
+          "folder.id",
+          "language.id"
+        ],
+        "optional": [
+          "articleType",
+          "description",
+          "keywords",
+          "summary",
+          "additionalInfo",
+          "content",
+          "availabilityDate",
+          "expirationDate",
+          "imageUrl",
+          "label",
+          "notes",
+          "relatedQuestions",
+          "macro",
+          "link",
+          "customAttributes",
+          "versions"
+        ],
+        "example": {
+          "folder": {
+            "id": "201500000004736"
+          },
+          "language": {
+            "id": "1"
+          },
+          "versions": {
+            "version": [
+              {
+                "name": "POST_ARTICLE_JSON1"
+              }
+            ]
+          }
+        }
+      },
+      "response": {
+        "successStatus": 201,
+        "body": "Articles/Versions schema (shape depends on $attribute)"
+      },
+      "permissions": [
+        "Create Article on folder"
+      ],
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/d9/d45/class_create_article_page.html",
+      "notes": [
+        "GET supports alternateId; POST/PUT/DELETE with alternateId -> 400"
+      ]
+    },
+    {
+      "id": "create-suggestion",
+      "category": "articles",
+      "name": "Suggested Article Creation API",
+      "method": "POST",
+      "path": "/ws/v20/kb/article/suggestion",
+      "description": "Creates a new article suggestion.",
+      "auth": "session",
+      "headers": {
+        "X-egain-session": "required",
+        "Content-Type": "application/xml or application/json (mutating methods)",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [
+        {
+          "name": "$attribute",
+          "required": false
+        }
+      ],
+      "requestBody": {
+        "required": [
+          "name",
+          "folder",
+          "language"
+        ],
+        "optional": [
+          "content",
+          "description",
+          "keywords",
+          "summary"
+        ]
+      },
+      "response": {
+        "successStatus": 201,
+        "body": "Articles/Versions schema (shape depends on $attribute)"
+      },
+      "permissions": [],
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/d2/de9/class_create_article_suggestion_page.html",
+      "notes": [
+        "GET supports alternateId; POST/PUT/DELETE with alternateId -> 400"
+      ]
+    },
+    {
+      "id": "rollback-article",
+      "category": "articles",
+      "name": "Rollback Article API",
+      "method": "POST",
+      "path": "/ws/v20/kb/article/{articleId}/version/{versionId}/rollback",
+      "description": "Rollback an article to a prior version.",
+      "auth": "session",
+      "headers": {
+        "X-egain-session": "required",
+        "Content-Type": "application/xml or application/json (mutating methods)",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [
+        {
+          "name": "$lang",
+          "required": false
+        },
+        {
+          "name": "$attribute",
+          "required": false
+        }
+      ],
+      "requestBody": null,
+      "response": {
+        "successStatus": 200,
+        "body": "Articles/Versions schema (shape depends on $attribute)"
+      },
+      "permissions": [],
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/d2/d89/class_rollback_article_page.html",
+      "notes": [
+        "GET supports alternateId; POST/PUT/DELETE with alternateId -> 400"
+      ]
+    },
+    {
+      "id": "move-article",
+      "category": "articles",
+      "name": "Article Move API",
+      "method": "POST",
+      "path": "/ws/v20/kb/article/{ids}/move",
+      "description": "Moves one or more articles to destination folder.",
+      "auth": "session",
+      "headers": {
+        "X-egain-session": "required",
+        "Content-Type": "application/xml or application/json (mutating methods)",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [
+        {
+          "name": "resolveNameConflicts",
+          "required": false
+        },
+        {
+          "name": "$attribute",
+          "required": false
+        }
+      ],
+      "requestBody": {
+        "required": [
+          "destination folder.id"
+        ],
+        "optional": []
+      },
+      "response": {
+        "successStatus": 200,
+        "body": "Articles/Versions schema (shape depends on $attribute)"
+      },
+      "permissions": [],
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/d3/d2f/class_move_article_page.html",
+      "notes": [
+        "GET supports alternateId; POST/PUT/DELETE with alternateId -> 400"
+      ]
+    },
+    {
+      "id": "edit-article",
+      "category": "articles",
+      "name": "Article Edit API",
+      "method": "PUT",
+      "path": "/ws/v20/kb/article",
+      "description": "Edits Personal Article, Article, or Approved Article Suggestion.",
+      "auth": "session",
+      "headers": {
+        "X-egain-session": "required",
+        "Content-Type": "application/xml or application/json (mutating methods)",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [
+        {
+          "name": "$lang",
+          "required": false
+        },
+        {
+          "name": "$attribute",
+          "required": false
+        }
+      ],
+      "requestBody": {
+        "required": [
+          "id",
+          "versions.version.lastModified"
+        ],
+        "optional": [
+          "name",
+          "description",
+          "keywords",
+          "summary",
+          "content",
+          "link",
+          "unlink",
+          "customAttributes"
+        ]
+      },
+      "response": {
+        "successStatus": 200,
+        "body": "Articles/Versions schema (shape depends on $attribute)"
+      },
+      "permissions": [
+        "Edit Article"
+      ],
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/d6/d70/class_editarticle_page.html",
+      "notes": [
+        "GET supports alternateId; POST/PUT/DELETE with alternateId -> 400"
+      ]
+    },
+    {
+      "id": "edit-version",
+      "category": "articles",
+      "name": "Edit Article Version API",
+      "method": "PUT",
+      "path": "/ws/v20/kb/article/version",
+      "description": "Edits an article version.",
+      "auth": "session",
+      "headers": {
+        "X-egain-session": "required",
+        "Content-Type": "application/xml or application/json (mutating methods)",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [
+        {
+          "name": "$attribute",
+          "required": false
+        }
+      ],
+      "requestBody": {
+        "required": [
+          "article/version identifiers + lastModified"
+        ],
+        "optional": [
+          "name",
+          "content",
+          "description"
+        ]
+      },
+      "response": {
+        "successStatus": 200,
+        "body": "Articles/Versions schema (shape depends on $attribute)"
+      },
+      "permissions": [],
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/de/d13/class_edit_version_page.html",
+      "notes": [
+        "GET supports alternateId; POST/PUT/DELETE with alternateId -> 400"
+      ]
+    },
+    {
+      "id": "checkout-article",
+      "category": "articles",
+      "name": "Article CheckOut API",
+      "method": "PUT",
+      "path": "/ws/v20/kb/article/{ids}/checkout",
+      "description": "Checks out one or more articles (locks for edit).",
+      "auth": "session",
+      "headers": {
+        "X-egain-session": "required",
+        "Content-Type": "application/xml or application/json (mutating methods)",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [
+        {
+          "name": "$lang",
+          "required": false
+        },
+        {
+          "name": "$attribute",
+          "required": false
+        }
+      ],
+      "requestBody": null,
+      "response": {
+        "successStatus": 200,
+        "body": "Articles/Versions schema (shape depends on $attribute)"
+      },
+      "permissions": [],
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/d7/d90/class_check_out_article_page.html",
+      "notes": [
+        "GET supports alternateId; POST/PUT/DELETE with alternateId -> 400"
+      ]
+    },
+    {
+      "id": "checkin-article",
+      "category": "articles",
+      "name": "Article CheckIn API",
+      "method": "PUT",
+      "path": "/ws/v20/kb/article/checkin",
+      "description": "Checks in article(s); includes optimistic concurrency via lastModified.",
+      "auth": "session",
+      "headers": {
+        "X-egain-session": "required",
+        "Content-Type": "application/xml or application/json (mutating methods)",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [
+        {
+          "name": "$lang",
+          "required": false
+        },
+        {
+          "name": "$attribute",
+          "required": false
+        }
+      ],
+      "requestBody": {
+        "required": [
+          "id",
+          "versions.version.lastModified"
+        ],
+        "optional": [
+          "name",
+          "content",
+          "description",
+          "keywords",
+          "summary",
+          "link",
+          "unlink",
+          "notes"
+        ],
+        "example": {
+          "article": [
+            {
+              "id": "201500000004762",
+              "versions": {
+                "version": [
+                  {
+                    "name": "EDIT_NAME_4",
+                    "lastModified": {
+                      "date": "2015-04-14T05:03:05.750Z"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "response": {
+        "successStatus": 200,
+        "body": "Articles/Versions schema (shape depends on $attribute)"
+      },
+      "permissions": [],
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/d8/d63/class_check_in_article_page.html",
+      "notes": [
+        "GET supports alternateId; POST/PUT/DELETE with alternateId -> 400"
+      ]
+    },
+    {
+      "id": "publish-article",
+      "category": "articles",
+      "name": "Article Publish API",
+      "method": "PUT",
+      "path": "/ws/v20/kb/article/publish",
+      "description": "Publishes article version; user must be allowed on workflow stages through published.",
+      "auth": "session",
+      "headers": {
+        "X-egain-session": "required",
+        "Content-Type": "application/xml or application/json (mutating methods)",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [
+        {
+          "name": "$lang",
+          "required": false
+        },
+        {
+          "name": "$attribute",
+          "required": false
+        }
+      ],
+      "requestBody": {
+        "required": [
+          "article id(s) / version lastModified as documented"
+        ],
+        "optional": [
+          "content edits",
+          "related links"
+        ]
+      },
+      "response": {
+        "successStatus": 200,
+        "body": "Articles/Versions schema (shape depends on $attribute)"
+      },
+      "permissions": [],
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/d8/d58/class_publish_article_page.html",
+      "notes": [
+        "GET supports alternateId; POST/PUT/DELETE with alternateId -> 400"
+      ]
+    },
+    {
+      "id": "accept-suggestion",
+      "category": "articles",
+      "name": "Accept Article Suggestion API",
+      "method": "PUT",
+      "path": "/ws/v20/kb/article/accept",
+      "description": "Accepts article suggestion.",
+      "auth": "session",
+      "headers": {
+        "X-egain-session": "required",
+        "Content-Type": "application/xml or application/json (mutating methods)",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [
+        {
+          "name": "$lang",
+          "required": false
+        },
+        {
+          "name": "$attribute",
+          "required": false
+        }
+      ],
+      "requestBody": {
+        "required": [
+          "suggestion/article ids"
+        ],
+        "optional": []
+      },
+      "response": {
+        "successStatus": 200,
+        "body": "Articles/Versions schema (shape depends on $attribute)"
+      },
+      "permissions": [],
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/d9/d1f/class_accept_suggestion_page.html",
+      "notes": [
+        "GET supports alternateId; POST/PUT/DELETE with alternateId -> 400"
+      ]
+    },
+    {
+      "id": "reject-suggestion",
+      "category": "articles",
+      "name": "Reject Article Suggestion API",
+      "method": "PUT",
+      "path": "/ws/v20/kb/article/reject",
+      "description": "Rejects article suggestion.",
+      "auth": "session",
+      "headers": {
+        "X-egain-session": "required",
+        "Content-Type": "application/xml or application/json (mutating methods)",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [
+        {
+          "name": "$lang",
+          "required": false
+        },
+        {
+          "name": "$attribute",
+          "required": false
+        }
+      ],
+      "requestBody": {
+        "required": [
+          "suggestion/article ids"
+        ],
+        "optional": []
+      },
+      "response": {
+        "successStatus": 200,
+        "body": "Articles/Versions schema (shape depends on $attribute)"
+      },
+      "permissions": [],
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/db/d97/class_reject_suggestion_page.html",
+      "notes": [
+        "GET supports alternateId; POST/PUT/DELETE with alternateId -> 400"
+      ]
+    },
+    {
+      "id": "feedback-suggestion",
+      "category": "articles",
+      "name": "Feedback for Article Suggestion API",
+      "method": "PUT",
+      "path": "/ws/v20/kb/article/feedback",
+      "description": "Provides feedback for article suggestion.",
+      "auth": "session",
+      "headers": {
+        "X-egain-session": "required",
+        "Content-Type": "application/xml or application/json (mutating methods)",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [
+        {
+          "name": "$lang",
+          "required": false
+        },
+        {
+          "name": "$attribute",
+          "required": false
+        }
+      ],
+      "requestBody": {
+        "required": [
+          "suggestion id",
+          "feedback"
+        ],
+        "optional": []
+      },
+      "response": {
+        "successStatus": 200,
+        "body": "Articles/Versions schema (shape depends on $attribute)"
+      },
+      "permissions": [],
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/dd/dd6/class_feedback_suggestion_page.html",
+      "notes": [
+        "GET supports alternateId; POST/PUT/DELETE with alternateId -> 400"
+      ]
+    },
+    {
+      "id": "resuggest-article",
+      "category": "articles",
+      "name": "Re-suggest Article API",
+      "method": "PUT",
+      "path": "/ws/v20/kb/article/resuggest",
+      "description": "Resubmits an article as suggestion.",
+      "auth": "session",
+      "headers": {
+        "X-egain-session": "required",
+        "Content-Type": "application/xml or application/json (mutating methods)",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [
+        {
+          "name": "$lang",
+          "required": false
+        },
+        {
+          "name": "$attribute",
+          "required": false
+        }
+      ],
+      "requestBody": {
+        "required": [
+          "article id"
+        ],
+        "optional": []
+      },
+      "response": {
+        "successStatus": 200,
+        "body": "Articles/Versions schema (shape depends on $attribute)"
+      },
+      "permissions": [],
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/d2/dca/class_resuggest_page.html",
+      "notes": [
+        "GET supports alternateId; POST/PUT/DELETE with alternateId -> 400"
+      ]
+    },
+    {
+      "id": "reset-lock",
+      "category": "articles",
+      "name": "Articles Reset Lock API",
+      "method": "PUT",
+      "path": "/ws/v20/kb/article/resetlock",
+      "description": "Resets lock on articles.",
+      "auth": "session",
+      "headers": {
+        "X-egain-session": "required",
+        "Content-Type": "application/xml or application/json (mutating methods)",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [
+        {
+          "name": "$lang",
+          "required": false
+        },
+        {
+          "name": "$attribute",
+          "required": false
+        }
+      ],
+      "requestBody": {
+        "required": [
+          "article id(s)"
+        ],
+        "optional": []
+      },
+      "response": {
+        "successStatus": 200,
+        "body": "Articles/Versions schema (shape depends on $attribute)"
+      },
+      "permissions": [],
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/dd/d47/class_reset_lock_page.html",
+      "notes": [
+        "GET supports alternateId; POST/PUT/DELETE with alternateId -> 400"
+      ]
+    },
+    {
+      "id": "request-lock",
+      "category": "articles",
+      "name": "Request Lock for Article API",
+      "method": "PUT",
+      "path": "/ws/v20/kb/article/{articleId}/requestlock",
+      "description": "Requests lock on a checked-out article.",
+      "auth": "session",
+      "headers": {
+        "X-egain-session": "required",
+        "Content-Type": "application/xml or application/json (mutating methods)",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [
+        {
+          "name": "$lang",
+          "required": false
+        },
+        {
+          "name": "$attribute",
+          "required": false
+        }
+      ],
+      "requestBody": null,
+      "response": {
+        "successStatus": 200,
+        "body": "Articles/Versions schema (shape depends on $attribute)"
+      },
+      "permissions": [],
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/d1/d9a/class_request_lock_page.html",
+      "notes": [
+        "GET supports alternateId; POST/PUT/DELETE with alternateId -> 400"
+      ]
+    },
+    {
+      "id": "change-type",
+      "category": "articles",
+      "name": "Change Article Type API",
+      "method": "PUT",
+      "path": "/ws/v20/kb/article/changetype",
+      "description": "Modifies article type.",
+      "auth": "session",
+      "headers": {
+        "X-egain-session": "required",
+        "Content-Type": "application/xml or application/json (mutating methods)",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [
+        {
+          "name": "$lang",
+          "required": false
+        },
+        {
+          "name": "$attribute",
+          "required": false
+        }
+      ],
+      "requestBody": {
+        "required": [
+          "article id",
+          "articleType"
+        ],
+        "optional": []
+      },
+      "response": {
+        "successStatus": 200,
+        "body": "Articles/Versions schema (shape depends on $attribute)"
+      },
+      "permissions": [],
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/d1/d7b/class_change_type_page.html",
+      "notes": [
+        "GET supports alternateId; POST/PUT/DELETE with alternateId -> 400"
+      ]
+    },
+    {
+      "id": "change-stage",
+      "category": "articles",
+      "name": "Change Article Stage API",
+      "method": "PUT",
+      "path": "/ws/v20/kb/article/changestage",
+      "description": "Moves article to another review stage.",
+      "auth": "session",
+      "headers": {
+        "X-egain-session": "required",
+        "Content-Type": "application/xml or application/json (mutating methods)",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [
+        {
+          "name": "$lang",
+          "required": false
+        },
+        {
+          "name": "$attribute",
+          "required": false
+        }
+      ],
+      "requestBody": {
+        "required": [
+          "article id",
+          "stage"
+        ],
+        "optional": []
+      },
+      "response": {
+        "successStatus": 200,
+        "body": "Articles/Versions schema (shape depends on $attribute)"
+      },
+      "permissions": [],
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/d6/d57/class_change_stage_page.html",
+      "notes": [
+        "GET supports alternateId; POST/PUT/DELETE with alternateId -> 400"
+      ]
+    },
+    {
+      "id": "get-article",
+      "category": "articles",
+      "name": "Get Article API",
+      "method": "GET",
+      "path": "/ws/v20/kb/article/{articleIds}",
+      "alternatePaths": [
+        "/ws/v20/kb/article/{alternateIds}",
+        "/ws/v20/kb/article?folder={folderId}",
+        "/ws/v20/kb/article?topic={topicId}",
+        "/ws/v20/kb/article?classification={cId}",
+        "/ws/v20/kb/article?case={caseId}",
+        "/ws/v20/kb/article?relatedArticle={articleId}"
+      ],
+      "description": "Read articles by id/alternateId or filter by folder/topic/classification/case/relatedArticle.",
+      "auth": "session",
+      "headers": {
+        "X-egain-session": "required",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [
+        {
+          "name": "folder"
+        },
+        {
+          "name": "topic"
+        },
+        {
+          "name": "classification"
+        },
+        {
+          "name": "case"
+        },
+        {
+          "name": "relatedArticle"
+        },
+        {
+          "name": "expandMacros",
+          "values": [
+            "yes"
+          ]
+        },
+        {
+          "name": "$attribute"
+        },
+        {
+          "name": "$lang"
+        },
+        {
+          "name": "$pagenum"
+        },
+        {
+          "name": "$pagesize"
+        },
+        {
+          "name": "$sort"
+        },
+        {
+          "name": "$order"
+        },
+        {
+          "name": "$count"
+        }
+      ],
+      "requestBody": null,
+      "response": {
+        "successStatus": 200,
+        "body": {
+          "link": {
+            "rel": "self",
+            "href": "string"
+          },
+          "paginationInfo": {
+            "count": "int",
+            "pagenum": "int",
+            "pagesize": "int"
+          },
+          "article": [
+            {
+              "id": "long",
+              "alternateId": "string",
+              "department": {
+                "id": "long",
+                "name": "string"
+              },
+              "language": {
+                "id": "long",
+                "code": "string",
+                "label": "string"
+              },
+              "folder": {
+                "id": "long",
+                "name": "string"
+              },
+              "reviewStage": {
+                "id": "long",
+                "name": "string"
+              },
+              "lock": {
+                "lockedBy": {}
+              },
+              "versions": {
+                "version": [
+                  {
+                    "id": "long",
+                    "name": "string",
+                    "versionNumber": "int",
+                    "content": "string",
+                    "articleState": "string",
+                    "articleType": "string"
+                  }
+                ]
+              },
+              "notes": {},
+              "customAttributes": {}
+            }
+          ],
+          "count": "int"
+        }
+      },
+      "notes": [
+        "Comma-separate multiple IDs",
+        "alternateId usable on GET"
+      ],
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/d8/d68/class_get_article_page.html"
+    },
+    {
+      "id": "get-version",
+      "category": "articles",
+      "name": "Get Version API",
+      "method": "GET",
+      "path": "/ws/v20/kb/article/{articleId}/version/{versionId}",
+      "alternatePaths": [
+        "/ws/v20/kb/article/{articleId}/version",
+        "/ws/v20/kb/article/{alternateId}/version/{versionId}"
+      ],
+      "description": "Get specific version or list versions for an article.",
+      "auth": "session",
+      "headers": {
+        "X-egain-session": "required",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [
+        {
+          "name": "expandMacros"
+        },
+        {
+          "name": "$attribute"
+        },
+        {
+          "name": "$lang"
+        },
+        {
+          "name": "$pagenum"
+        },
+        {
+          "name": "$pagesize"
+        }
+      ],
+      "requestBody": null,
+      "response": {
+        "successStatus": 200,
+        "body": "versions collection"
+      },
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/da/d10/class_get_version_page.html"
+    },
+    {
+      "id": "get-latest-version",
+      "category": "articles",
+      "name": "Get Latest Version API",
+      "method": "GET",
+      "path": "/ws/v20/kb/article/{articleIds}/latest",
+      "alternatePaths": [
+        "/ws/v20/kb/article/{alternateIds}/latest",
+        "/ws/v20/kb/article/latest?folder={folderId}"
+      ],
+      "description": "Get latest version for article(s) or by folder.",
+      "auth": "session",
+      "headers": {
+        "X-egain-session": "required",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [
+        {
+          "name": "folder"
+        },
+        {
+          "name": "expandMacros"
+        },
+        {
+          "name": "$attribute"
+        },
+        {
+          "name": "$lang"
+        }
+      ],
+      "requestBody": null,
+      "response": {
+        "successStatus": 200,
+        "body": "articles/versions"
+      },
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/d8/d0d/class_get_latest_version_page.html"
+    },
+    {
+      "id": "get-review-stages",
+      "category": "articles",
+      "name": "Get Review Stages API",
+      "method": "GET",
+      "path": "/ws/v20/kb/article/{articleId}/mystages",
+      "alternatePaths": [
+        "/ws/v20/kb/article/{alternateId}/mystages"
+      ],
+      "description": "Get review stages available to the requesting user for an article.",
+      "auth": "session",
+      "headers": {
+        "X-egain-session": "required",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [
+        {
+          "name": "$lang"
+        },
+        {
+          "name": "$attribute"
+        }
+      ],
+      "requestBody": null,
+      "response": {
+        "successStatus": 200,
+        "body": "stages"
+      },
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/da/de5/class_get_my_stages_page.html"
+    },
+    {
+      "id": "get-suggestions",
+      "category": "articles",
+      "name": "Get Suggestions API",
+      "method": "GET",
+      "path": "/ws/v20/kb/article/suggestion",
+      "description": "Get all article suggestions.",
+      "auth": "session",
+      "headers": {
+        "X-egain-session": "required",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [
+        {
+          "name": "expandMacros"
+        },
+        {
+          "name": "$attribute"
+        },
+        {
+          "name": "$lang"
+        },
+        {
+          "name": "$pagenum"
+        },
+        {
+          "name": "$pagesize"
+        }
+      ],
+      "requestBody": null,
+      "response": {
+        "successStatus": 200,
+        "body": "suggestions/articles"
+      },
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/da/d58/class_get_suggestion_page.html"
+    },
+    {
+      "id": "get-my-suggestions",
+      "category": "articles",
+      "name": "Get My Suggestions API",
+      "method": "GET",
+      "path": "/ws/v20/kb/article/mysuggestion",
+      "description": "Get suggestions for the logged-in user.",
+      "auth": "session",
+      "headers": {
+        "X-egain-session": "required",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [
+        {
+          "name": "expandMacros"
+        },
+        {
+          "name": "$attribute"
+        },
+        {
+          "name": "$lang"
+        },
+        {
+          "name": "$pagenum"
+        },
+        {
+          "name": "$pagesize"
+        }
+      ],
+      "requestBody": null,
+      "response": {
+        "successStatus": 200,
+        "body": "articles"
+      },
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/d0/d10/class_get_my_suggestion_page.html"
+    },
+    {
+      "id": "get-articles-for-review",
+      "category": "articles",
+      "name": "Get Articles For Review",
+      "method": "GET",
+      "path": "/ws/v20/kb/article/mywork",
+      "description": "Get articles awaiting review; filter by reviewStage and knowledgeWorkflow.",
+      "auth": "session",
+      "headers": {
+        "X-egain-session": "required",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [
+        {
+          "name": "reviewStage"
+        },
+        {
+          "name": "knowledgeWorkflow"
+        },
+        {
+          "name": "expandMacros"
+        },
+        {
+          "name": "$attribute"
+        },
+        {
+          "name": "$lang"
+        },
+        {
+          "name": "$pagenum"
+        },
+        {
+          "name": "$pagesize"
+        }
+      ],
+      "requestBody": null,
+      "response": {
+        "successStatus": 200,
+        "body": "articles"
+      },
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/da/dce/class_get_my_work_page.html"
+    },
+    {
+      "id": "delete-article",
+      "category": "articles",
+      "name": "Article Delete API",
+      "method": "DELETE",
+      "path": "/ws/v20/kb/article/{ids}",
+      "description": "Delete one or more articles (comma-separated ids).",
+      "auth": "session",
+      "headers": {
+        "X-egain-session": "required",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [
+        {
+          "name": "$lang"
+        }
+      ],
+      "requestBody": null,
+      "response": {
+        "successStatus": 204,
+        "body": null
+      },
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/dc/d8c/class_delete_article_page.html"
+    },
+    {
+      "id": "delete-article-version",
+      "category": "articles",
+      "name": "Article Version Delete API",
+      "method": "DELETE",
+      "path": "/ws/v20/kb/article/{id}/version/{versionIds}",
+      "description": "Delete one or more versions for an article.",
+      "auth": "session",
+      "headers": {
+        "X-egain-session": "required",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [],
+      "requestBody": null,
+      "response": {
+        "successStatus": 204,
+        "body": null
+      },
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/dd/d7a/class_delete_article_version_page.html"
+    },
+    {
+      "id": "delink-attachments",
+      "category": "articles",
+      "name": "Delete Article-Attachments Link API",
+      "method": "DELETE",
+      "path": "/ws/v20/kb/article/{articleId}/~link/kb/attachment/{attachmentIds}",
+      "description": "Delink attachments from an article.",
+      "auth": "session",
+      "headers": {
+        "X-egain-session": "required",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [
+        {
+          "name": "$lang"
+        }
+      ],
+      "requestBody": null,
+      "response": {
+        "successStatus": 204,
+        "body": null
+      },
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/d9/d4b/class_delink_attachments_page.html"
+    },
+    {
+      "id": "create-folder",
+      "category": "folders",
+      "name": "Folder Creation API",
+      "method": "POST",
+      "path": "/ws/v20/kb/folder",
+      "description": "Creates a folder under parent folder or department Shared folder.",
+      "auth": "session",
+      "headers": {
+        "X-egain-session": "required",
+        "Content-Type": "application/xml or application/json (mutating methods)",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [
+        {
+          "name": "$attribute"
+        }
+      ],
+      "requestBody": {
+        "required": [
+          "name",
+          "department OR parent"
+        ],
+        "optional": [
+          "parent",
+          "description",
+          "access",
+          "translate",
+          "location",
+          "acl"
+        ],
+        "example": {
+          "name": "Egs21230Api1",
+          "parent": {
+            "id": "222200000005760"
+          },
+          "description": "Desc for folder"
+        }
+      },
+      "response": {
+        "successStatus": 201,
+        "headers": [
+          "Location"
+        ],
+        "body": {
+          "folder": [
+            {
+              "id": "long",
+              "name": "string",
+              "parent": {},
+              "department": {},
+              "access": "public|private",
+              "acl": {},
+              "language": {}
+            }
+          ],
+          "paginationInfo": {},
+          "count": 1
+        }
+      },
+      "permissions": [
+        "Create Folder"
+      ],
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/dc/db8/class_create_folder_page.html"
+    },
+    {
+      "id": "edit-folder",
+      "category": "folders",
+      "name": "Folder Edit API",
+      "method": "PUT",
+      "path": "/ws/v20/kb/folder/{folderId}",
+      "description": "Edits a folder.",
+      "auth": "session",
+      "headers": {
+        "X-egain-session": "required",
+        "Content-Type": "application/xml or application/json (mutating methods)",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [
+        {
+          "name": "$attribute"
+        },
+        {
+          "name": "$lang"
+        }
+      ],
+      "requestBody": {
+        "required": [
+          "fields to update"
+        ],
+        "optional": [
+          "name",
+          "description",
+          "access",
+          "acl",
+          "translate"
+        ]
+      },
+      "response": {
+        "successStatus": 200,
+        "body": "folder"
+      },
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/d5/dab/class_edit_folder_page.html"
+    },
+    {
+      "id": "copy-folder",
+      "category": "folders",
+      "name": "Folder Copy API",
+      "method": "POST",
+      "path": "/ws/v20/kb/folder/copy/{srcFolderId}",
+      "description": "Copies folder to another parent. Body supplies destination parent.",
+      "auth": "session",
+      "headers": {
+        "X-egain-session": "required",
+        "Content-Type": "application/xml or application/json (mutating methods)",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [
+        {
+          "name": "merge",
+          "values": [
+            "0",
+            "1"
+          ]
+        },
+        {
+          "name": "$attribute"
+        }
+      ],
+      "requestBody": {
+        "required": [
+          "destination parent folder"
+        ],
+        "optional": []
+      },
+      "response": {
+        "successStatus": 200,
+        "body": "folder"
+      },
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/dc/d20/class_copy_folder_page.html"
+    },
+    {
+      "id": "move-folder",
+      "category": "folders",
+      "name": "Folder Move API",
+      "method": "POST",
+      "path": "/ws/v20/kb/folder/move/{srcFolderId}",
+      "description": "Moves folder to another parent. Body supplies destination parent.",
+      "auth": "session",
+      "headers": {
+        "X-egain-session": "required",
+        "Content-Type": "application/xml or application/json (mutating methods)",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [
+        {
+          "name": "merge",
+          "values": [
+            "0",
+            "1"
+          ]
+        },
+        {
+          "name": "$attribute"
+        }
+      ],
+      "requestBody": {
+        "required": [
+          "destination parent folder"
+        ],
+        "optional": []
+      },
+      "response": {
+        "successStatus": 200,
+        "body": "folder"
+      },
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/df/dfc/class_move_folder_page.html"
+    },
+    {
+      "id": "get-folder",
+      "category": "folders",
+      "name": "Get Folder API",
+      "method": "GET",
+      "path": "/ws/v20/kb/folder/{folderIds}",
+      "alternatePaths": [
+        "/ws/v20/kb/folder?parent={parentFolderId}",
+        "/ws/v20/kb/folder?department={departmentId}"
+      ],
+      "description": "Read folders by IDs, children of parent, or department.",
+      "auth": "session",
+      "headers": {
+        "X-egain-session": "required",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [
+        {
+          "name": "parent"
+        },
+        {
+          "name": "department"
+        },
+        {
+          "name": "$attribute"
+        },
+        {
+          "name": "$lang"
+        },
+        {
+          "name": "$level"
+        },
+        {
+          "name": "$pagenum"
+        },
+        {
+          "name": "$pagesize"
+        }
+      ],
+      "requestBody": null,
+      "response": {
+        "successStatus": 200,
+        "body": {
+          "folder": [
+            {
+              "id": "long",
+              "name": "string",
+              "description": "string",
+              "parent": {},
+              "department": {},
+              "access": "string",
+              "owner": [],
+              "acl": {},
+              "language": {}
+            }
+          ],
+          "paginationInfo": {},
+          "count": 1
+        }
+      },
+      "permissions": [
+        "View Folder"
+      ],
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/d4/d2b/class_get_folder_page.html"
+    },
+    {
+      "id": "get-folder-acl",
+      "category": "folders",
+      "name": "Get Folder Permissions (ACL) API",
+      "method": "GET",
+      "path": "/ws/v20/acl/folder/{folderId}",
+      "description": "Read ACL permissions for a folder.",
+      "auth": "session",
+      "headers": {
+        "X-egain-session": "required",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [
+        {
+          "name": "$attribute"
+        }
+      ],
+      "requestBody": null,
+      "response": {
+        "successStatus": 200,
+        "body": {
+          "entries": {
+            "entry": [
+              {
+                "user": {},
+                "permission": [
+                  {
+                    "value": "view_folder|edit_folder|create_article|...",
+                    "explicit": 1
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/d8/d32/class_get_acl_page.html"
+    },
+    {
+      "id": "delete-folder",
+      "category": "folders",
+      "name": "Folder Delete API",
+      "method": "DELETE",
+      "path": "/ws/v20/kb/folder/{ids}",
+      "description": "Delete one or more folders.",
+      "auth": "session",
+      "headers": {
+        "X-egain-session": "required",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [],
+      "requestBody": null,
+      "response": {
+        "successStatus": 204,
+        "body": null
+      },
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/db/da4/class_delete_folder_page.html"
+    },
+    {
+      "id": "create-note",
+      "category": "notes",
+      "name": "Notes Creation API",
+      "method": "POST",
+      "path": "/ws/v20/kb/article/{id}/note",
+      "description": "Creates a note on an article.",
+      "auth": "session",
+      "headers": {
+        "X-egain-session": "required",
+        "Content-Type": "application/xml or application/json (mutating methods)",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [
+        {
+          "name": "$attribute"
+        },
+        {
+          "name": "$lang"
+        }
+      ],
+      "requestBody": {
+        "required": [
+          "content"
+        ],
+        "example": {
+          "note": [
+            {
+              "content": "New Note added to the personal article"
+            }
+          ]
+        }
+      },
+      "response": {
+        "successStatus": 201,
+        "body": {
+          "note": [
+            {
+              "id": "long",
+              "content": "string",
+              "created": {}
+            }
+          ],
+          "paginationInfo": {},
+          "count": 1
+        }
+      },
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/d5/dc9/class_create_note_page.html"
+    },
+    {
+      "id": "get-notes",
+      "category": "notes",
+      "name": "Get Notes API",
+      "method": "GET",
+      "path": "/ws/v20/kb/article/{id}/note",
+      "alternatePaths": [
+        "/ws/v20/kb/article/{alternateId}/note"
+      ],
+      "description": "Read notes for an article.",
+      "auth": "session",
+      "headers": {
+        "X-egain-session": "required",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [
+        {
+          "name": "$attribute"
+        },
+        {
+          "name": "$lang"
+        },
+        {
+          "name": "$pagenum"
+        },
+        {
+          "name": "$pagesize"
+        }
+      ],
+      "requestBody": null,
+      "response": {
+        "successStatus": 200,
+        "body": {
+          "note": [
+            {
+              "id": "long",
+              "content": "string",
+              "created": {}
+            }
+          ],
+          "count": 1
+        }
+      },
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/db/d3d/class_get_note_page.html"
+    },
+    {
+      "id": "delete-notes",
+      "category": "notes",
+      "name": "Notes Delete API",
+      "method": "DELETE",
+      "path": "/ws/v20/kb/article/{id}/note/{noteIDs}",
+      "description": "Delete one or more notes (comma-separated note IDs).",
+      "auth": "session",
+      "headers": {
+        "X-egain-session": "required",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [],
+      "requestBody": null,
+      "response": {
+        "successStatus": 204,
+        "body": null
+      },
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/df/d5b/class_delete_note_page.html"
+    },
+    {
+      "id": "create-external-attachment",
+      "category": "attachments",
+      "name": "Create External Attachment API",
+      "method": "POST",
+      "path": "/ws/v20/kb/attachment/external",
+      "description": "Create an external attachment, optionally linked to an article.",
+      "auth": "session",
+      "headers": {
+        "X-egain-session": "required",
+        "Content-Type": "application/xml or application/json (mutating methods)",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [
+        {
+          "name": "article"
+        },
+        {
+          "name": "$lang"
+        },
+        {
+          "name": "$attribute"
+        }
+      ],
+      "requestBody": {
+        "required": [
+          "external attachment fields per schema"
+        ],
+        "optional": []
+      },
+      "response": {
+        "successStatus": 201,
+        "body": "attachment"
+      },
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/db/d9e/class_create_external_attachment_page.html"
+    },
+    {
+      "id": "create-internal-attachment",
+      "category": "attachments",
+      "name": "Create Internal Attachment API",
+      "method": "POST",
+      "path": "/ws/v20/kb/attachment/internal",
+      "description": "Create an internal (uploaded file) attachment linked to an article.",
+      "auth": "session",
+      "headers": {
+        "X-egain-session": "required",
+        "Content-Type": "multipart/form-data or as documented",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [
+        {
+          "name": "article",
+          "required": true
+        },
+        {
+          "name": "$lang",
+          "required": true
+        },
+        {
+          "name": "$attribute"
+        }
+      ],
+      "requestBody": {
+        "required": [
+          "file upload parts as documented"
+        ],
+        "optional": []
+      },
+      "response": {
+        "successStatus": 201,
+        "body": "attachment"
+      },
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/d2/d9a/class_create_internal_attachment_page.html"
+    },
+    {
+      "id": "edit-external-attachment",
+      "category": "attachments",
+      "name": "Edit External Attachment API",
+      "method": "PUT",
+      "path": "/ws/v20/kb/attachment/external",
+      "description": "Edit an external attachment.",
+      "auth": "session",
+      "headers": {
+        "X-egain-session": "required",
+        "Content-Type": "application/xml or application/json (mutating methods)",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [
+        {
+          "name": "article"
+        },
+        {
+          "name": "$lang"
+        },
+        {
+          "name": "$attribute"
+        }
+      ],
+      "requestBody": {
+        "required": [
+          "attachment id + fields"
+        ],
+        "optional": []
+      },
+      "response": {
+        "successStatus": 200,
+        "body": "attachment"
+      },
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/db/da3/class_edit_external_attachment_page.html"
+    },
+    {
+      "id": "get-attachment",
+      "category": "attachments",
+      "name": "Get Attachment API",
+      "method": "GET",
+      "path": "/ws/v20/kb/attachment",
+      "alternatePaths": [
+        "/ws/v20/kb/attachment/{ids}?article={articleId}&version={versionId}",
+        "/ws/v20/kb/attachment?article={articleId}&$lang={lang}"
+      ],
+      "description": "Read attachments for an article/version. article (+ version or $lang) required.",
+      "auth": "session",
+      "headers": {
+        "X-egain-session": "required",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [
+        {
+          "name": "article",
+          "required": true
+        },
+        {
+          "name": "version"
+        },
+        {
+          "name": "$lang"
+        },
+        {
+          "name": "$attribute"
+        }
+      ],
+      "requestBody": null,
+      "response": {
+        "successStatus": 200,
+        "body": "attachments collection"
+      },
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/d5/dfb/class_get_attachment_page.html"
+    },
+    {
+      "id": "get-topics",
+      "category": "topics",
+      "name": "Get Topics API",
+      "method": "GET",
+      "path": "/ws/v20/kb/topic/{ids}",
+      "alternatePaths": [
+        "/ws/v20/kb/topic?portal={portalID}",
+        "/ws/v20/kb/topic?department={departmentID}",
+        "/ws/v20/kb/topic?parent={parentTopicID}",
+        "/ws/v20/kb/topic?article={articleID}"
+      ],
+      "description": "Read topics by IDs or filter by portal/department/parent/article.",
+      "auth": "session",
+      "headers": {
+        "X-egain-session": "required",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [
+        {
+          "name": "portal"
+        },
+        {
+          "name": "department"
+        },
+        {
+          "name": "parent"
+        },
+        {
+          "name": "article"
+        },
+        {
+          "name": "$level"
+        },
+        {
+          "name": "$lang"
+        },
+        {
+          "name": "$attribute"
+        },
+        {
+          "name": "$pagenum"
+        },
+        {
+          "name": "$pagesize"
+        }
+      ],
+      "requestBody": null,
+      "response": {
+        "successStatus": 200,
+        "body": {
+          "topic": [
+            {
+              "id": "long",
+              "name": "string",
+              "department": {},
+              "language": {},
+              "isTranslatable": "bool",
+              "imageUrl": "string"
+            }
+          ],
+          "paginationInfo": {},
+          "count": 1
+        }
+      },
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/dd/d07/class_get_topics_page.html"
+    },
+    {
+      "id": "get-article-order",
+      "category": "topics",
+      "name": "Get Article-Order API",
+      "method": "GET",
+      "path": "/ws/v20/kb/topic/{id}/articleorder",
+      "description": "Retrieve top/bottom article order within a topic.",
+      "auth": "session",
+      "headers": {
+        "X-egain-session": "required",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [],
+      "requestBody": null,
+      "response": {
+        "successStatus": 200,
+        "body": "article order"
+      },
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/d3/dfb/class_get_article_order_page.html"
+    },
+    {
+      "id": "create-topic",
+      "category": "topics",
+      "name": "Create Topic API",
+      "method": "POST",
+      "path": "/ws/v20/kb/topic",
+      "description": "Create topic under parent topic or department (root).",
+      "auth": "session",
+      "headers": {
+        "X-egain-session": "required",
+        "Content-Type": "application/xml or application/json (mutating methods)",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [
+        {
+          "name": "$attribute"
+        }
+      ],
+      "requestBody": {
+        "required": [
+          "name",
+          "language",
+          "parentTopic OR department"
+        ],
+        "optional": [
+          "description",
+          "imageUrl",
+          "isTranslatable",
+          "customAttributes"
+        ],
+        "example": {
+          "department": {
+            "id": "999"
+          },
+          "language": {
+            "id": "1"
+          },
+          "name": "new topic1234",
+          "description": "This is related to store",
+          "isTranslatable": "false"
+        }
+      },
+      "response": {
+        "successStatus": 201,
+        "body": {
+          "topic": [
+            {
+              "id": "long",
+              "name": "string"
+            }
+          ],
+          "count": 1
+        }
+      },
+      "permissions": [
+        "View Knowledge Base",
+        "Create Topic"
+      ],
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/df/df5/class_create_topic_page.html"
+    },
+    {
+      "id": "add-articles-to-topic",
+      "category": "topics",
+      "name": "Add Articles To Topic API",
+      "method": "POST",
+      "path": "/ws/v20/kb/topic/{topicId}/~link/kb/article/{articleIds}",
+      "description": "Link one or more articles to a topic.",
+      "auth": "session",
+      "headers": {
+        "X-egain-session": "required",
+        "Content-Type": "application/xml or application/json (mutating methods)",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [],
+      "requestBody": null,
+      "response": {
+        "successStatus": 200,
+        "body": "link/topic result"
+      },
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/df/d60/class_link_topic_article_page.html"
+    },
+    {
+      "id": "move-topic",
+      "category": "topics",
+      "name": "Topic Move API",
+      "method": "POST",
+      "path": "/ws/v20/kb/topic/{topicID}/move",
+      "description": "Move source topic under destination (body).",
+      "auth": "session",
+      "headers": {
+        "X-egain-session": "required",
+        "Content-Type": "application/xml or application/json (mutating methods)",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [
+        {
+          "name": "$attribute"
+        }
+      ],
+      "requestBody": {
+        "required": [
+          "destination parent/department"
+        ],
+        "optional": []
+      },
+      "response": {
+        "successStatus": 200,
+        "body": "topic"
+      },
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/d8/d04/class_move_topic_page.html"
+    },
+    {
+      "id": "copy-topic",
+      "category": "topics",
+      "name": "Topic Copy API",
+      "method": "POST",
+      "path": "/ws/v20/kb/topic/{topicID}/copy",
+      "description": "Copy source topic under destination.",
+      "auth": "session",
+      "headers": {
+        "X-egain-session": "required",
+        "Content-Type": "application/xml or application/json (mutating methods)",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [
+        {
+          "name": "$attribute"
+        }
+      ],
+      "requestBody": {
+        "required": [
+          "destination parent/department"
+        ],
+        "optional": []
+      },
+      "response": {
+        "successStatus": 200,
+        "body": "topic"
+      },
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/d6/dea/class_copy_topic_page.html"
+    },
+    {
+      "id": "edit-topic",
+      "category": "topics",
+      "name": "Edit Topic API",
+      "method": "PUT",
+      "path": "/ws/v20/kb/topic",
+      "description": "Edit one or more topics.",
+      "auth": "session",
+      "headers": {
+        "X-egain-session": "required",
+        "Content-Type": "application/xml or application/json (mutating methods)",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [
+        {
+          "name": "$lang"
+        },
+        {
+          "name": "$attribute"
+        }
+      ],
+      "requestBody": {
+        "required": [
+          "topic id(s)"
+        ],
+        "optional": [
+          "name",
+          "description",
+          "imageUrl",
+          "isTranslatable",
+          "customAttributes"
+        ]
+      },
+      "response": {
+        "successStatus": 200,
+        "body": "topics"
+      },
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/d3/d6f/class_edit_topic_page.html"
+    },
+    {
+      "id": "edit-article-order",
+      "category": "topics",
+      "name": "Edit Article-Order API",
+      "method": "PUT",
+      "path": "/ws/v20/kb/topic/{topicId}/articleorder",
+      "description": "Edit order of articles in a topic.",
+      "auth": "session",
+      "headers": {
+        "X-egain-session": "required",
+        "Content-Type": "application/xml or application/json (mutating methods)",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [],
+      "requestBody": {
+        "required": [
+          "ordered article references"
+        ],
+        "optional": []
+      },
+      "response": {
+        "successStatus": 200,
+        "body": "article order"
+      },
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/db/de3/class_edit_article_order_page.html"
+    },
+    {
+      "id": "delete-topic",
+      "category": "topics",
+      "name": "Topic Delete API",
+      "method": "DELETE",
+      "path": "/ws/v20/kb/topic/{ids}",
+      "description": "Delete one or more topics.",
+      "auth": "session",
+      "headers": {
+        "X-egain-session": "required",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [],
+      "requestBody": null,
+      "response": {
+        "successStatus": 204,
+        "body": null
+      },
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/d0/de1/class_delete_topic_page.html"
+    },
+    {
+      "id": "remove-articles-from-topic",
+      "category": "topics",
+      "name": "Remove Articles From Topic API",
+      "method": "DELETE",
+      "path": "/ws/v20/kb/topic/{topicId}/~link/kb/article/{articleIds}",
+      "description": "Unlink articles from a topic.",
+      "auth": "session",
+      "headers": {
+        "X-egain-session": "required",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [],
+      "requestBody": null,
+      "response": {
+        "successStatus": 204,
+        "body": null
+      },
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/df/d4e/class_de_link_topic_article_page.html"
+    },
+    {
+      "id": "get-article-types",
+      "category": "articleTypes",
+      "name": "Get All Article Types and Templates",
+      "method": "GET",
+      "path": "/ws/v20/kb/articleType",
+      "description": "Retrieves article types and templates for a department.",
+      "auth": "session",
+      "headers": {
+        "X-egain-session": "required",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [
+        {
+          "name": "department",
+          "required": true,
+          "description": "department id"
+        }
+      ],
+      "requestBody": null,
+      "response": {
+        "successStatus": 200,
+        "body": "articleTypes and templates"
+      },
+      "permissions": [
+        "View Knowledge Base",
+        "user in department or admin"
+      ],
+      "notes": [
+        "Docs also show lowercase articletype in examples"
+      ],
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/d1/da2/class_get_article_types_page.html"
+    },
+    {
+      "id": "get-article-template",
+      "category": "articleTypes",
+      "name": "Get Article Template",
+      "method": "GET",
+      "path": "/ws/v20/kb/articleType/articleTemplate/{Id}",
+      "description": "Get a specific article template by ID.",
+      "auth": "session",
+      "headers": {
+        "X-egain-session": "required",
+        "Accept": "application/xml or application/json",
+        "Accept-Language": "optional"
+      },
+      "queryParameters": [],
+      "requestBody": null,
+      "response": {
+        "successStatus": 200,
+        "body": "articleTemplate"
+      },
+      "docUrl": "https://hd.egain.com/api/knowledge_authoring_interaction_api_reference_guide/html/de/de7/class_get_article_template_page.html"
+    }
+  ]
+}

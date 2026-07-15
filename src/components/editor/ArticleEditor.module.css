@@ -1,0 +1,87 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+  background: var(--eg-surface);
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.65rem 1.5rem;
+  border-bottom: 1px solid var(--eg-border);
+  background: var(--eg-surface);
+}
+
+.titleRow {
+  padding: 1.5rem 2.5rem 0.35rem;
+  max-width: 56rem;
+  width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.titleInput {
+  width: 100%;
+  border: 0;
+  font-family: var(--eg-font-display);
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  padding: 0.2rem 0;
+  background: transparent;
+  color: var(--eg-ink);
+  line-height: 1.25;
+}
+
+.titleInput:disabled {
+  color: var(--eg-ink);
+  opacity: 0.9;
+}
+
+.metaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  padding: 0 2.5rem 1rem;
+  max-width: 56rem;
+  width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
+  font-size: 0.8125rem;
+  color: var(--eg-muted);
+}
+
+.editorShell {
+  margin: 0 1.25rem 1.25rem;
+  background: var(--eg-surface);
+  border: 1px solid var(--eg-border);
+  border-radius: var(--eg-radius);
+  box-shadow: var(--eg-shadow);
+  overflow: hidden;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-width: 56rem;
+  width: calc(100% - 2.5rem);
+  align-self: center;
+}
+
+.dirty {
+  color: var(--eg-warning);
+  font-weight: 650;
+  font-size: 0.8rem;
+}
+
+.empty {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(ellipse 60% 40% at 50% 0%, var(--eg-brand-softer), transparent 60%),
+    var(--eg-surface);
+}

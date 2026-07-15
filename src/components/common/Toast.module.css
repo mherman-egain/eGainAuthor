@@ -1,0 +1,54 @@
+.stack {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 1100;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: min(360px, calc(100vw - 2rem));
+}
+
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: var(--eg-radius);
+  border: 1px solid var(--eg-border);
+  background: var(--eg-surface);
+  box-shadow: var(--eg-shadow-lg);
+  animation: slide 180ms ease;
+}
+
+.message {
+  flex: 1;
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.success {
+  border-color: #abefc6;
+  background: var(--eg-success-bg);
+}
+
+.error {
+  border-color: #fecdca;
+  background: var(--eg-danger-bg);
+}
+
+.info {
+  border-color: #b2ccff;
+  background: var(--eg-info-bg);
+}
+
+@keyframes slide {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
