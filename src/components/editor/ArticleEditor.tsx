@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import clsx from 'clsx'
 import { Button } from '@/components/common/Button'
 import { EmptyState } from '@/components/common/EmptyState'
@@ -9,6 +10,7 @@ import { isCheckedOutByUser } from '@/api/mappers'
 import { useConsoleStore } from '@/store/consoleStore'
 import { useSessionStore } from '@/store/sessionStore'
 import { useToastStore } from '@/store/toastStore'
+import { folderPath, articlePath } from '@/utils/deepLinks'
 import { formatDate, statusLabel } from '@/utils/format'
 import styles from './ArticleEditor.module.css'
 
@@ -24,6 +26,7 @@ export function ArticleEditor() {
     articleLoading,
     articleLoadError,
     selectArticle,
+    selectedFolderId,
     draftTitle,
     draftContent,
     articleDirty,
@@ -42,6 +45,7 @@ export function ArticleEditor() {
   const getClient = useSessionStore((s) => s.getClient)
   const user = useSessionStore((s) => s.user)
   const pushToast = useToastStore((s) => s.push)
+  const navigate = useNavigate()
   const savingRef = useRef(false)
   const savedClearRef = useRef<number | null>(null)
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
@@ -180,11 +184,23 @@ export function ArticleEditor() {
                 <Button
                   variant="primary"
                   size="sm"
-                  onClick={() => void selectArticle(selectedArticleId)}
+                  onClick={() => {
+                    if (selectedFolderId && selectedArticleId) {
+                      navigate(articlePath(selectedFolderId, selectedArticleId))
+                    }
+                    void selectArticle(selectedArticleId)
+                  }}
                 >
                   Try again
                 </Button>
-                <Button variant="ghost" size="sm" onClick={() => void selectArticle(null)}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    if (selectedFolderId) navigate(folderPath(selectedFolderId))
+                    else navigate('/')
+                  }}
+                >
                   Back to list
                 </Button>
               </div>

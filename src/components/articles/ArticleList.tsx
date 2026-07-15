@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import clsx from 'clsx'
 import { Button } from '@/components/common/Button'
 import {
@@ -13,6 +14,7 @@ import { useConsoleStore } from '@/store/consoleStore'
 import { useSessionStore } from '@/store/sessionStore'
 import { useToastStore } from '@/store/toastStore'
 import { setArticleDragData } from '@/utils/articleDnD'
+import { articlePath, folderPath } from '@/utils/deepLinks'
 import { pasteClipboardIntoFolder, pasteSuccessMessage } from '@/utils/kbPaste'
 import { formatRelative, statusLabel } from '@/utils/format'
 import type { FolderNode } from '@/types'
@@ -32,8 +34,6 @@ export function ArticleList({ onCreateArticle }: { onCreateArticle: () => void }
     articlesLoading,
     selectedArticleId,
     selectedArticleIds,
-    selectArticle,
-    selectArticleExclusive,
     toggleArticleSelected,
     selectArticleRange,
     clearArticleSelection,
@@ -51,6 +51,16 @@ export function ArticleList({ onCreateArticle }: { onCreateArticle: () => void }
   } = useConsoleStore()
   const getClient = useSessionStore((s) => s.getClient)
   const pushToast = useToastStore((s) => s.push)
+  const navigate = useNavigate()
+
+  const openArticle = (articleId: string) => {
+    if (!selectedFolderId) return
+    navigate(articlePath(selectedFolderId, articleId))
+  }
+
+  const openCurrentFolder = () => {
+    if (selectedFolderId) navigate(folderPath(selectedFolderId))
+  }
 
   const [menu, setMenu] = useState<ContextMenuState | null>(null)
   const [deleteOpen, setDeleteOpen] = useState(false)
@@ -135,7 +145,7 @@ export function ArticleList({ onCreateArticle }: { onCreateArticle: () => void }
   const afterBulkChange = async () => {
     if (selectedFolderId) await loadArticles(selectedFolderId)
     clearArticleSelection()
-    await selectArticle(null)
+    openCurrentFolder()
   }
 
   const runMove = async (ids: string[], destinationFolderId: string) => {
@@ -226,7 +236,7 @@ export function ArticleList({ onCreateArticle }: { onCreateArticle: () => void }
         await loadArticles(selectedFolderId)
         if (result.mode === 'cut') {
           clearArticleSelection()
-          await selectArticle(null)
+          openCurrentFolder()
         }
       }
     } catch (err) {
@@ -247,7 +257,7 @@ export function ArticleList({ onCreateArticle }: { onCreateArticle: () => void }
       let ids: string[]
       if (!state.selectedArticleIds.has(articleId)) {
         ids = [articleId]
-        void state.selectArticleExclusive(articleId)
+        openArticle(articleId)
       } else {
         ids = state.getSelectedArticleIds()
       }
@@ -311,7 +321,7 @@ export function ArticleList({ onCreateArticle }: { onCreateArticle: () => void }
       setMenu({ x: e.clientX, y: e.clientY, items })
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [cutArticlesToClipboard, copyArticlesToClipboard, pushToast],
+    [cutArticlesToClipboard, copyArticlesToClipboard, pushToast, selectedFolderId, navigate],
   )
 
   return (
@@ -489,13 +499,13 @@ export function ArticleList({ onCreateArticle }: { onCreateArticle: () => void }
                     toggleArticleSelected(article.id)
                     return
                   }
-                  void selectArticleExclusive(article.id)
+                  openArticle(article.id)
                 }}
                 onContextMenu={(e) => onArticleContextMenu(e, article.id)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault()
-                    void selectArticleExclusive(article.id)
+                    openArticle(article.id)
                   }
                 }}
               >

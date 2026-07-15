@@ -1,5 +1,5 @@
 import { useEffect, useState, type CSSProperties } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import clsx from 'clsx'
 import { Header } from '@/components/layout/Header'
 import { FolderTree } from '@/components/folders/FolderTree'
@@ -12,6 +12,7 @@ import { useResizablePanel } from '@/hooks/useResizablePanel'
 import { useSessionStore } from '@/store/sessionStore'
 import { useConsoleStore } from '@/store/consoleStore'
 import { useToastStore } from '@/store/toastStore'
+import { articlePath, decodeIdParam, folderPath } from '@/utils/deepLinks'
 import styles from './ConsolePage.module.css'
 
 const NARROW_MQ = '(max-width: 1100px)'
@@ -47,10 +48,17 @@ function UnpinIcon() {
 export function ConsolePage() {
   const isAuthenticated = useSessionStore((s) => s.isAuthenticated)
   const getClient = useSessionStore((s) => s.getClient)
+  const navigate = useNavigate()
+  const params = useParams<{ folderId?: string; articleId?: string }>()
+  const routeFolderId = decodeIdParam(params.folderId)
+  const routeArticleId = decodeIdParam(params.articleId)
   const {
     loadFolders,
     loadArticleTypes,
+    folders,
+    foldersLoading,
     selectedFolderId,
+    selectFolder,
     selectArticle,
     loadArticles,
     propertiesOpen,
@@ -109,6 +117,55 @@ export function ConsolePage() {
     }
   }, [isAuthenticated, loadFolders, loadArticleTypes])
 
+  const firstFolderId = folders[0]?.id
+
+  // Keep console selection in sync with the deep-link URL.
+  useEffect(() => {
+    if (!isAuthenticated() || booting || foldersLoading) return
+
+    if (!routeFolderId) {
+      if (firstFolderId) navigate(folderPath(firstFolderId), { replace: true })
+      return
+    }
+
+    let cancelled = false
+    ;(async () => {
+      try {
+        if (selectedFolderId !== routeFolderId) {
+          await selectFolder(routeFolderId)
+        }
+        if (cancelled) return
+        if (routeArticleId) {
+          if (useConsoleStore.getState().selectedArticleId !== routeArticleId) {
+            await selectArticle(routeArticleId)
+          }
+          setMobilePanel('editor')
+        } else if (useConsoleStore.getState().selectedArticleId) {
+          await selectArticle(null)
+          setMobilePanel('articles')
+        }
+      } catch {
+        // selection errors surface via store/toasts
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [
+    isAuthenticated,
+    booting,
+    foldersLoading,
+    firstFolderId,
+    routeFolderId,
+    routeArticleId,
+    selectedFolderId,
+    selectFolder,
+    selectArticle,
+    navigate,
+    setMobilePanel,
+  ])
+
   if (!isAuthenticated()) {
     return <Navigate to="/login" replace />
   }
@@ -137,7 +194,7 @@ export function ConsolePage() {
       setCreateOpen(false)
       setTitle('Untitled article')
       await loadArticles(selectedFolderId)
-      await selectArticle(article.id)
+      navigate(articlePath(selectedFolderId, article.id))
       setMobilePanel('editor')
     } catch (err) {
       pushToast({

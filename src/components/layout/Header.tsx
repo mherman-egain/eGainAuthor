@@ -5,6 +5,7 @@ import { SearchInput } from '@/components/common/SearchInput'
 import { useConsoleStore } from '@/store/consoleStore'
 import { useSessionStore } from '@/store/sessionStore'
 import { useToastStore } from '@/store/toastStore'
+import { articlePath } from '@/utils/deepLinks'
 import { initials } from '@/utils/format'
 import styles from './Header.module.css'
 
@@ -23,8 +24,6 @@ export function Header({ onCreateArticle }: Props) {
     runGlobalSearch,
     searchResults,
     searching,
-    selectArticle,
-    selectFolder,
   } = useConsoleStore()
   const pushToast = useToastStore((s) => s.push)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -90,8 +89,9 @@ export function Header({ onCreateArticle }: Props) {
                 type="button"
                 className={styles.searchItem}
                 onClick={() => {
-                  void selectFolder(a.folderId)
-                  void selectArticle(a.id)
+                  if (a.folderId) {
+                    navigate(articlePath(a.folderId, a.id))
+                  }
                   setSearchOpen(false)
                   setGlobalSearch('')
                 }}

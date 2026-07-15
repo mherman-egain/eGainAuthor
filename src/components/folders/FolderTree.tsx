@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import clsx from 'clsx'
 import type { FolderNode } from '@/types'
 import { Button } from '@/components/common/Button'
@@ -15,6 +16,7 @@ import { useConsoleStore } from '@/store/consoleStore'
 import { useSessionStore } from '@/store/sessionStore'
 import { useToastStore } from '@/store/toastStore'
 import { ARTICLE_DND_MIME, readArticleDragIds } from '@/utils/articleDnD'
+import { folderPath } from '@/utils/deepLinks'
 import {
   isInvalidFolderMoveDestination,
   pruneNestedFolderIds,
@@ -54,11 +56,11 @@ function FolderRow({
     selectedFolderIds,
     expandedFolderIds,
     toggleFolderExpanded,
-    selectFolder,
     toggleFolderSelected,
     selectFolderRange,
     clipboard,
   } = useConsoleStore()
+  const navigate = useNavigate()
   const [dropActive, setDropActive] = useState(false)
   const hasChildren =
     (node.childCount != null && node.childCount > 0) ||
@@ -98,13 +100,13 @@ function FolderRow({
             toggleFolderSelected(node.id)
             return
           }
-          void selectFolder(node.id)
+          navigate(folderPath(node.id))
         }}
         onContextMenu={(e) => onFolderContextMenu(e, node.id)}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault()
-            void selectFolder(node.id)
+            navigate(folderPath(node.id))
           }
           if (e.key === 'ArrowRight' && hasChildren && !expanded) {
             toggleFolderExpanded(node.id)
@@ -201,8 +203,6 @@ export function FolderTree() {
     loadFolders,
     loadArticles,
     clearArticleSelection,
-    selectArticle,
-    selectFolder,
     draggingArticleIds,
     clipboard,
     copyFoldersToClipboard,
@@ -211,6 +211,7 @@ export function FolderTree() {
   } = useConsoleStore()
   const getClient = useSessionStore((s) => s.getClient)
   const pushToast = useToastStore((s) => s.push)
+  const navigate = useNavigate()
 
   const [menu, setMenu] = useState<ContextMenuState | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
@@ -248,8 +249,10 @@ export function FolderTree() {
             : `${articleIds.length} articles moved`,
       })
       clearArticleSelection()
-      await selectArticle(null)
-      if (currentFolder) await loadArticles(currentFolder)
+      if (currentFolder) {
+        navigate(folderPath(currentFolder))
+        await loadArticles(currentFolder)
+      }
     } catch (err) {
       pushToast({
         type: 'error',
@@ -285,7 +288,7 @@ export function FolderTree() {
       }
       if (result.kind === 'articles' && result.mode === 'cut') {
         clearArticleSelection()
-        await selectArticle(null)
+        if (openId) navigate(folderPath(openId))
       }
     } catch (err) {
       pushToast({
@@ -339,7 +342,7 @@ export function FolderTree() {
       let ids: string[]
       if (!state.selectedFolderIds.has(folderId)) {
         ids = [folderId]
-        void state.selectFolder(folderId)
+        navigate(folderPath(folderId))
       } else {
         ids = [...state.selectedFolderIds]
       }
@@ -413,7 +416,7 @@ export function FolderTree() {
     },
     // runPasteInto reads fresh store state; omit from deps to keep menu stable.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [cutFoldersToClipboard, copyFoldersToClipboard, flat, pushToast],
+    [cutFoldersToClipboard, copyFoldersToClipboard, flat, pushToast, navigate],
   )
 
   const hasMultiFolderSelection = selectedFolderIds.size > 1
@@ -714,7 +717,7 @@ export function FolderTree() {
               await getClient().deleteFolder(id)
             }
             if (ids.includes(selectedFolderId ?? '')) {
-              await selectFolder(null)
+              navigate('/')
             }
           }, ids.length === 1 ? 'Folder deleted' : `${ids.length} folders deleted`)
         }}

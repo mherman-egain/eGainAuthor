@@ -172,12 +172,9 @@ export const useConsoleStore = create<ConsoleStore>((set, get) => ({
     try {
       const client = useSessionStore.getState().getClient()
       const folders = await client.getFolderTree()
-      // Keep collapsed; children load when the user expands a folder
+      // Keep collapsed; children load when the user expands a folder.
+      // Folder selection comes from the deep-link URL (ConsolePage).
       set({ folders, expandedFolderIds: new Set() })
-
-      if (!get().selectedFolderId && folders[0]) {
-        await get().selectFolder(folders[0].id)
-      }
     } catch (err) {
       toastError(err, 'Failed to load folders')
     } finally {
@@ -186,6 +183,10 @@ export const useConsoleStore = create<ConsoleStore>((set, get) => ({
   },
 
   selectFolder: async (id) => {
+    if (id && id === get().selectedFolderId) {
+      set({ mobilePanel: 'articles' })
+      return
+    }
     set({
       selectedFolderId: id,
       selectedFolderIds: id ? new Set([id]) : new Set(),
