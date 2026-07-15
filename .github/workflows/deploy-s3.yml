@@ -1,0 +1,129 @@
+# Deploy eGain Author to S3 (CloudFront)
+#
+# Triggers on every push to main. Builds the SPA for
+# https://aznadestzw4.egdemo.info/demo/mherman/author/
+# and syncs dist/ → s3://egain-presales-demo-websites/demo/mherman/author/
+#
+# Required GitHub repository secrets (Settings → Secrets and variables → Actions):
+#   AWS_ACCESS_KEY_ID
+#   AWS_SECRET_ACCESS_KEY
+#
+# Optional:
+#   AWS_REGION                 (default us-west-2)
+#   S3_BUCKET_NAME             (default egain-presales-demo-websites)
+#   CLOUDFRONT_DISTRIBUTION_ID (invalidates CDN cache when set)
+#   VITE_DEFAULT_SERVER_URL, VITE_OAUTH_CLIENT_ID, VITE_OAUTH_AUTH_URL,
+#   VITE_OAUTH_TOKEN_URL, VITE_OAUTH_REDIRECT_URI, VITE_OAUTH_SCOPES
+#
+# NEVER commit AWS credentials to the repository.
+
+name: Deploy to S3
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-author-s3
+  cancel-in-progress: true
+
+env:
+  S3_PREFIX: demo/mherman/author
+  VITE_BASE_PATH: /demo/mherman/author/
+  DEFAULT_AWS_REGION: us-west-2
+  DEFAULT_S3_BUCKET: egain-presales-demo-websites
+  DEFAULT_OAUTH_REDIRECT: https://aznadestzw4.egdemo.info/demo/mherman/author/oauth/callback
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        env:
+          VITE_BASE_PATH: ${{ env.VITE_BASE_PATH }}
+          VITE_DEFAULT_SERVER_URL: ${{ secrets.VITE_DEFAULT_SERVER_URL }}
+          VITE_OAUTH_CLIENT_ID: ${{ secrets.VITE_OAUTH_CLIENT_ID }}
+          VITE_OAUTH_AUTH_URL: ${{ secrets.VITE_OAUTH_AUTH_URL }}
+          VITE_OAUTH_TOKEN_URL: ${{ secrets.VITE_OAUTH_TOKEN_URL }}
+          VITE_OAUTH_SCOPES: ${{ secrets.VITE_OAUTH_SCOPES }}
+          VITE_OAUTH_REDIRECT_URI: ${{ secrets.VITE_OAUTH_REDIRECT_URI }}
+          VITE_CONTEXT_ROOT: ${{ secrets.VITE_CONTEXT_ROOT }}
+          VITE_API_VERSION: ${{ secrets.VITE_API_VERSION }}
+        run: |
+          if [ -z "$VITE_OAUTH_REDIRECT_URI" ]; then
+            export VITE_OAUTH_REDIRECT_URI="$DEFAULT_OAUTH_REDIRECT"
+          fi
+          npm run build
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-west-2
+
+      - name: Resolve bucket / region overrides
+        id: aws
+        env:
+          SECRET_REGION: ${{ secrets.AWS_REGION }}
+          SECRET_BUCKET: ${{ secrets.S3_BUCKET_NAME }}
+          SECRET_CF: ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}
+        run: |
+          echo "region=${SECRET_REGION:-$DEFAULT_AWS_REGION}" >> "$GITHUB_OUTPUT"
+          echo "bucket=${SECRET_BUCKET:-$DEFAULT_S3_BUCKET}" >> "$GITHUB_OUTPUT"
+          if [ -n "$SECRET_CF" ]; then
+            echo "invalidate=true" >> "$GITHUB_OUTPUT"
+            echo "distribution_id=$SECRET_CF" >> "$GITHUB_OUTPUT"
+          else
+            echo "invalidate=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Sync hashed assets (long cache)
+        env:
+          AWS_DEFAULT_REGION: ${{ steps.aws.outputs.region }}
+          BUCKET: ${{ steps.aws.outputs.bucket }}
+        run: |
+          aws s3 sync dist/ "s3://${BUCKET}/${S3_PREFIX}/" \
+            --delete \
+            --exclude "index.html" \
+            --cache-control "public,max-age=31536000,immutable"
+
+      - name: Upload index.html (no cache)
+        env:
+          AWS_DEFAULT_REGION: ${{ steps.aws.outputs.region }}
+          BUCKET: ${{ steps.aws.outputs.bucket }}
+        run: |
+          aws s3 cp dist/index.html "s3://${BUCKET}/${S3_PREFIX}/index.html" \
+            --cache-control "public,max-age=0,must-revalidate" \
+            --content-type "text/html"
+
+      - name: Invalidate CloudFront cache
+        if: steps.aws.outputs.invalidate == 'true'
+        env:
+          AWS_DEFAULT_REGION: ${{ steps.aws.outputs.region }}
+          DISTRIBUTION_ID: ${{ steps.aws.outputs.distribution_id }}
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id "$DISTRIBUTION_ID" \
+            --paths "/${S3_PREFIX}/*" "/${S3_PREFIX}/index.html"
+
+      - name: Deployment summary
+        run: |
+          echo "Deployed to s3://${{ steps.aws.outputs.bucket }}/${S3_PREFIX}/"
+          echo "App URL: https://aznadestzw4.egdemo.info/demo/mherman/author/index.html"

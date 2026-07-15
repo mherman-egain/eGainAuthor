@@ -146,7 +146,7 @@ export function HtmlEditor({
       <Editor
         key={contentKey}
         licenseKey="gpl"
-        tinymceScriptSrc="/tinymce/tinymce.min.js"
+        tinymceScriptSrc={`${import.meta.env.BASE_URL}tinymce/tinymce.min.js`}
         disabled={!editable}
         initialValue={seedRef.current.html}
         onInit={(_evt, editor) => {

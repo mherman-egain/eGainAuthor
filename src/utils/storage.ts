@@ -29,6 +29,10 @@ export type UiPrefs = {
   autoSave?: boolean
   /** Dock article properties to the right side of the console. */
   propertiesAnchored?: boolean
+  /** Folders panel width in px. */
+  folderWidth?: number
+  /** Articles panel width in px. */
+  articleWidth?: number
 }
 
 export function loadUiPrefs(): UiPrefs {

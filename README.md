@@ -18,6 +18,33 @@ npm run build    # production build
 npm run preview  # preview the build
 ```
 
+## Deploy (S3 + CloudFront)
+
+Pushes to `main` run [`.github/workflows/deploy-s3.yml`](.github/workflows/deploy-s3.yml), which builds with base path `/demo/mherman/author/` and syncs to:
+
+`s3://egain-presales-demo-websites/demo/mherman/author/`
+
+**Live URL:** https://aznadestzw4.egdemo.info/demo/mherman/author/index.html
+
+### One-time GitHub secrets
+
+In the repo: **Settings → Secrets and variables → Actions**, add:
+
+| Secret | Required | Notes |
+|--------|----------|--------|
+| `AWS_ACCESS_KEY_ID` | yes | Deploy IAM user |
+| `AWS_SECRET_ACCESS_KEY` | yes | Deploy IAM user |
+| `AWS_REGION` | no | Default `us-west-2` |
+| `S3_BUCKET_NAME` | no | Default `egain-presales-demo-websites` |
+| `CLOUDFRONT_DISTRIBUTION_ID` | no | Clears CDN cache after upload |
+| `VITE_OAUTH_*` / `VITE_DEFAULT_SERVER_URL` | no | Baked into the production build |
+
+Do **not** put AWS keys in the repo or in `.env` files that get committed.
+
+### API proxy on CloudFront
+
+The Vite `/api-proxy` middleware exists only in local `npm run dev` / `preview`. For live tenant APIs behind CloudFront, configure a matching origin/path behavior (or use **Demo Mode** / password login only if CORS allows).
+
 ## Routes
 
 | Path | Screen |

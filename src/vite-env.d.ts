@@ -10,6 +10,8 @@ interface ImportMetaEnv {
   readonly VITE_API_VERSION?: string
   readonly VITE_CONTEXT_ROOT?: string
   readonly VITE_FORCE_DEMO?: string
+  readonly VITE_BASE_PATH?: string
+  readonly BASE_URL: string
 }
 
 interface ImportMeta {

@@ -179,15 +179,22 @@ function readBody(req: IncomingMessage): Promise<Buffer> {
   })
 }
 
-export default defineConfig({
-  plugins: [react(), egainProxyPlugin()],
-  resolve: {
-    alias: {
-      '@': path.resolve(__dirname, 'src'),
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '')
+  // Subpath deploy (S3/CloudFront), e.g. /demo/mherman/author/
+  const base = env.VITE_BASE_PATH || '/'
+
+  return {
+    base,
+    plugins: [react(), egainProxyPlugin()],
+    resolve: {
+      alias: {
+        '@': path.resolve(__dirname, 'src'),
+      },
     },
-  },
-  server: {
-    port: 5173,
-    open: false,
-  },
+    server: {
+      port: 5173,
+      open: false,
+    },
+  }
 })

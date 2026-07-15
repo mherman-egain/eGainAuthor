@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import { Navigate } from 'react-router-dom'
 import clsx from 'clsx'
 import { Header } from '@/components/layout/Header'
@@ -8,6 +8,7 @@ import { ArticleEditor } from '@/components/editor/ArticleEditor'
 import { PropertiesPanel } from '@/components/properties/PropertiesPanel'
 import { Modal } from '@/components/common/Modal'
 import { Button } from '@/components/common/Button'
+import { useResizablePanel } from '@/hooks/useResizablePanel'
 import { useSessionStore } from '@/store/sessionStore'
 import { useConsoleStore } from '@/store/consoleStore'
 import { useToastStore } from '@/store/toastStore'
@@ -66,6 +67,14 @@ export function ConsolePage() {
   const [booting, setBooting] = useState(true)
   const [narrow, setNarrow] = useState(() =>
     typeof window !== 'undefined' ? window.matchMedia(NARROW_MQ).matches : false,
+  )
+  const { width: folderWidth, resizeHandlers: folderResize } = useResizablePanel(
+    'folderWidth',
+    { initial: 280, min: 180, max: 480 },
+  )
+  const { width: articleWidth, resizeHandlers: articleResize } = useResizablePanel(
+    'articleWidth',
+    { initial: 300, min: 200, max: 520 },
   )
 
   useEffect(() => {
@@ -181,6 +190,12 @@ export function ConsolePage() {
 
       <div
         className={clsx(styles.body, showDockedProps && styles.bodyWithProps)}
+        style={
+          {
+            '--eg-folder-w': `${folderWidth}px`,
+            '--eg-article-w': `${articleWidth}px`,
+          } as CSSProperties
+        }
       >
         <div
           className={clsx(
@@ -189,6 +204,18 @@ export function ConsolePage() {
           )}
         >
           <FolderTree />
+          {!narrow ? (
+            <div
+              className={styles.resizeHandle}
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Resize folders panel"
+              aria-valuenow={folderWidth}
+              aria-valuemin={180}
+              aria-valuemax={480}
+              {...folderResize}
+            />
+          ) : null}
         </div>
 
         <div
@@ -198,6 +225,18 @@ export function ConsolePage() {
           )}
         >
           <ArticleList onCreateArticle={openCreate} />
+          {!narrow ? (
+            <div
+              className={styles.resizeHandle}
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Resize articles panel"
+              aria-valuenow={articleWidth}
+              aria-valuemin={200}
+              aria-valuemax={520}
+              {...articleResize}
+            />
+          ) : null}
         </div>
 
         <main
