@@ -9,6 +9,7 @@ import {
 import { resolveLoggedInUser, sessionLogin } from '@/api/auth'
 import { clearArticleLastModified } from '@/api/articleStamp'
 import { resetSessionExpiredGuard } from '@/api/http'
+import { beginSuppressReturnPath } from '@/utils/authReturn'
 import { normalizeServerUrl } from '@/utils/format'
 
 type SessionStore = SessionState & {
@@ -232,6 +233,9 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
 
   logout: async () => {
     const client = get().client
+    // Prevent ConsolePage's auth guard from capturing the current deep link
+    // as `next` while local auth is cleared. Cleared when LoginPage mounts.
+    beginSuppressReturnPath()
     // Drop local auth first so a dead-session logout response does not
     // race a "session expired → return to this page" redirect.
     get().clearLocalAuth()

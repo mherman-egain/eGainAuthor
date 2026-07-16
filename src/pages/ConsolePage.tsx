@@ -12,7 +12,7 @@ import { useResizablePanel } from '@/hooks/useResizablePanel'
 import { useSessionStore } from '@/store/sessionStore'
 import { useConsoleStore } from '@/store/consoleStore'
 import { useToastStore } from '@/store/toastStore'
-import { loginPathWithReturn } from '@/utils/authReturn'
+import { loginRedirectForLocation } from '@/utils/authReturn'
 import { articlePath, decodeIdParam, folderPath } from '@/utils/deepLinks'
 import styles from './ConsolePage.module.css'
 
@@ -171,7 +171,7 @@ export function ConsolePage() {
   if (!isAuthenticated()) {
     return (
       <Navigate
-        to={loginPathWithReturn(location.pathname + location.search)}
+        to={loginRedirectForLocation(location.pathname + location.search)}
         replace
       />
     )

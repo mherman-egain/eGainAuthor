@@ -1,8 +1,11 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Navigate, useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/common/Button'
 import { useSessionStore } from '@/store/sessionStore'
-import { sanitizeReturnPath } from '@/utils/authReturn'
+import {
+  endSuppressReturnPath,
+  sanitizeReturnPath,
+} from '@/utils/authReturn'
 import { loadJson, STORAGE_KEYS } from '@/utils/storage'
 import { normalizeServerUrl } from '@/utils/format'
 import styles from './LoginPage.module.css'
@@ -17,6 +20,10 @@ export function LoginPage() {
   } = useSessionStore()
   const [searchParams] = useSearchParams()
   const returnTo = sanitizeReturnPath(searchParams.get('next'))
+
+  useEffect(() => {
+    endSuppressReturnPath()
+  }, [])
 
   const [url, setUrl] = useState(serverUrl || '')
   const [userName, setUserName] = useState('')

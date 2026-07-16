@@ -156,10 +156,9 @@ export function Header({ onCreateArticle }: Props) {
                 role="menuitem"
                 onClick={async () => {
                   setMenuOpen(false)
-                  // Leave the console route first so logout / expiry does not
-                  // capture the current folder/article as a return path.
-                  navigate('/login', { replace: true })
                   await logout()
+                  // Force a clean login URL (no next=) after auth is cleared.
+                  navigate('/login', { replace: true })
                   pushToast({ type: 'info', message: 'Signed out' })
                 }}
               >
