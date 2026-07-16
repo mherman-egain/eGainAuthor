@@ -1,5 +1,5 @@
 import { useEffect, useState, type CSSProperties } from 'react'
-import { Navigate, useNavigate, useParams } from 'react-router-dom'
+import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
 import clsx from 'clsx'
 import { Header } from '@/components/layout/Header'
 import { FolderTree } from '@/components/folders/FolderTree'
@@ -12,6 +12,7 @@ import { useResizablePanel } from '@/hooks/useResizablePanel'
 import { useSessionStore } from '@/store/sessionStore'
 import { useConsoleStore } from '@/store/consoleStore'
 import { useToastStore } from '@/store/toastStore'
+import { loginPathWithReturn } from '@/utils/authReturn'
 import { articlePath, decodeIdParam, folderPath } from '@/utils/deepLinks'
 import styles from './ConsolePage.module.css'
 
@@ -49,6 +50,7 @@ export function ConsolePage() {
   const isAuthenticated = useSessionStore((s) => s.isAuthenticated)
   const getClient = useSessionStore((s) => s.getClient)
   const navigate = useNavigate()
+  const location = useLocation()
   const params = useParams<{ folderId?: string; articleId?: string }>()
   const routeFolderId = decodeIdParam(params.folderId)
   const routeArticleId = decodeIdParam(params.articleId)
@@ -167,7 +169,12 @@ export function ConsolePage() {
   ])
 
   if (!isAuthenticated()) {
-    return <Navigate to="/login" replace />
+    return (
+      <Navigate
+        to={loginPathWithReturn(location.pathname + location.search)}
+        replace
+      />
+    )
   }
 
   const docked = propertiesAnchored && !narrow

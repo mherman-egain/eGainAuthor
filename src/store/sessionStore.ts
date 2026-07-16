@@ -8,6 +8,7 @@ import {
 } from '@/api/client'
 import { resolveLoggedInUser, sessionLogin } from '@/api/auth'
 import { clearArticleLastModified } from '@/api/articleStamp'
+import { resetSessionExpiredGuard } from '@/api/http'
 import { normalizeServerUrl } from '@/utils/format'
 
 type SessionStore = SessionState & {
@@ -18,6 +19,8 @@ type SessionStore = SessionState & {
   enterDemoMode: () => Promise<void>
   loginWithPassword: (userName: string, password: string) => Promise<void>
   setUser: (user: UserProfile | null) => void
+  /** Clear local auth without calling the logout API (session expiry). */
+  clearLocalAuth: () => void
   logout: () => Promise<void>
   getClient: () => ApiClient
   isAuthenticated: () => boolean
@@ -154,6 +157,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       departmentId: user?.departmentId,
     }
     persistSession(state)
+    resetSessionExpiredGuard()
     set({ ...state, client: demo })
   },
 
@@ -177,6 +181,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       departmentId: user.departmentId,
     }
     persistSession(state)
+    resetSessionExpiredGuard()
     set({ ...state, client: buildLiveClient(state, language) })
     // Apply user's default KB language to the console
     void import('./consoleStore').then(({ useConsoleStore }) => {
@@ -206,15 +211,12 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     })
   },
 
-  logout: async () => {
-    const client = get().client
-    try {
-      await client?.logout()
-    } catch {
-      // ignore
-    }
+  clearLocalAuth: () => {
     clearSession()
     clearArticleLastModified()
+    void import('./consoleStore').then(({ useConsoleStore }) => {
+      useConsoleStore.getState().resetConsole()
+    })
     set({
       accessToken: undefined,
       refreshToken: undefined,
@@ -226,6 +228,19 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
       authMode: 'session',
       client: null,
     })
+  },
+
+  logout: async () => {
+    const client = get().client
+    // Drop local auth first so a dead-session logout response does not
+    // race a "session expired → return to this page" redirect.
+    get().clearLocalAuth()
+    try {
+      await client?.logout()
+    } catch {
+      // ignore
+    }
+    resetSessionExpiredGuard()
   },
 
   getClient: () => {

@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Navigate, useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/common/Button'
 import { useSessionStore } from '@/store/sessionStore'
+import { sanitizeReturnPath } from '@/utils/authReturn'
 import { loadJson, STORAGE_KEYS } from '@/utils/storage'
 import { normalizeServerUrl } from '@/utils/format'
 import styles from './LoginPage.module.css'
@@ -14,6 +15,8 @@ export function LoginPage() {
     enterDemoMode,
     isAuthenticated,
   } = useSessionStore()
+  const [searchParams] = useSearchParams()
+  const returnTo = sanitizeReturnPath(searchParams.get('next'))
 
   const [url, setUrl] = useState(serverUrl || '')
   const [userName, setUserName] = useState('')
@@ -24,7 +27,7 @@ export function LoginPage() {
   const recent = loadJson<string[]>(STORAGE_KEYS.recentServers, [])
 
   if (isAuthenticated()) {
-    return <Navigate to="/" replace />
+    return <Navigate to={returnTo} replace />
   }
 
   const applyServer = () => {
